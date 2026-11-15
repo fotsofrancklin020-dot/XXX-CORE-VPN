@@ -49,7 +49,6 @@ class FrankVpnService : VpnService() {
             builder.addAddress(it.address(), it.prefix())
         }
 
-        if (options.getAutoRoute()) {
         
 if (options.getAutoRoute()) {
     if (options.getDNSMode().value != Mobile.DNSModeDisabled) {
