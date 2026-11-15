@@ -50,54 +50,56 @@ class FrankVpnService : VpnService() {
         }
 
         if (options.getAutoRoute()) {
-            if (options.getDNSMode().value != Mobile.DNSModeDisabled) {
-               options.getDNSServerAddress().toList().forEach {
-                  builder.addDnsServer(it)
-               }
-                }
+        
+if (options.getAutoRoute()) {
+    if (options.getDNSMode().value != Mobile.DNSModeDisabled) {
+        options.getDNSServerAddress().toList().forEach {
+            builder.addDnsServer(it)
+        }
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val ipv4 = options.getInet4RouteAddress()
+        if (ipv4.hasNext()) {
+            ipv4.forEach {
+                builder.addRoute(it.address(), it.prefix())
             }
+        } else if (options.getInet4Address().hasNext()) {
+            builder.addRoute("0.0.0.0", 0)
+        }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val ipv4 = options.getInet4RouteAddress()
-                if (ipv4.hasNext()) {
-                    ipv4.forEach {
-                        builder.addRoute(it.address(), it.prefix())
-                    }
-                } else if (options.getInet4Address().hasNext()) {
-                    builder.addRoute("0.0.0.0", 0)
-                }
+        val ipv6 = options.getInet6RouteAddress()
+        if (ipv6.hasNext()) {
+            ipv6.forEach {
+                builder.addRoute(it.address(), it.prefix())
+            }
+        } else if (options.getInet6Address().hasNext()) {
+            builder.addRoute("::", 0)
+        }
 
-                val ipv6 = options.getInet6RouteAddress()
-                if (ipv6.hasNext()) {
-                    ipv6.forEach {
-                        builder.addRoute(it.address(), it.prefix())
-                    }
-                } else if (options.getInet6Address().hasNext()) {
-                    builder.addRoute("::", 0)
-                }
-
-                options.getInet4RouteExcludeAddress().forEach {
-                    val address = InetAddress.getByName(it.address())
-                    if (!address.isLoopbackAddress) {
-                        builder.excludeRoute(IpPrefix(address, it.prefix()))
-                    }
-                }
-
-                options.getInet6RouteExcludeAddress().forEach {
-                    val address = InetAddress.getByName(it.address())
-                    if (!address.isLoopbackAddress) {
-                        builder.excludeRoute(IpPrefix(address, it.prefix()))
-                    }
-                }
-            } else {
-                options.getInet4RouteRange().forEach {
-                    builder.addRoute(it.address(), it.prefix())
-                }
-                options.getInet6RouteRange().forEach {
-                    builder.addRoute(it.address(), it.prefix())
-                }
+        options.getInet4RouteExcludeAddress().forEach {
+            val address = InetAddress.getByName(it.address())
+            if (!address.isLoopbackAddress) {
+                builder.excludeRoute(IpPrefix(address, it.prefix()))
             }
         }
+
+        options.getInet6RouteExcludeAddress().forEach {
+            val address = InetAddress.getByName(it.address())
+            if (!address.isLoopbackAddress) {
+                builder.excludeRoute(IpPrefix(address, it.prefix()))
+            }
+        }
+    } else {
+        options.getInet4RouteRange().forEach {
+            builder.addRoute(it.address(), it.prefix())
+        }
+        options.getInet6RouteRange().forEach {
+            builder.addRoute(it.address(), it.prefix())
+        }
+    }
+}
+ 
 
         val includePackages = options.getIncludePackage()
         if (includePackages.hasNext()) {
