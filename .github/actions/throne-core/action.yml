@@ -1,0 +1,48 @@
+name: Build ThroneCore AAR
+description: Builds the ThroneCore Android library
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout Throne
+      shell: bash
+      run: |
+        set -euo pipefail
+        REF=$(sed -n 's/^THRONE_CORE_REF=//p' nb4a.properties | tr -d '\r[:space:]')
+        test -n "$REF"
+        THRONE_DIR="$(dirname "$GITHUB_WORKSPACE")/Throne"
+        rm -rf "$THRONE_DIR"
+        git init -q "$THRONE_DIR"
+        git -C "$THRONE_DIR" remote add origin https://github.com/throneproj/Throne
+        git -C "$THRONE_DIR" fetch -q --depth 1 origin "$REF"
+        git -C "$THRONE_DIR" checkout -q --detach FETCH_HEAD
+        echo "THRONE_DIR=$THRONE_DIR" >> "$GITHUB_ENV"
+
+    - name: Install Go
+      uses: actions/setup-go@v7
+      with:
+        go-version: '1.27.3'
+
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: Install Android NDK
+      shell: bash
+      run: |
+        echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.2.13676358"
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+    - name: Install gomobile
+      shell: bash
+      run: |
+        go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+        go install github.com/sagernet/gomobile/cmd/gobind@v0.1.13
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+    - name: Build ThroneCore AAR
+      shell: bash
+      working-directory: ${{ env.THRONE_DIR }}
+      run: DEST="$GITHUB_WORKSPACE/app/libs" bash script/build_android.sh
