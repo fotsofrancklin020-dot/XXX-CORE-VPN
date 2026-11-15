@@ -13,7 +13,16 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+    
     }
+splits {
+    abi {
+        isEnable = true
+        reset()
+        include("arm64-v8a", "armeabi-v7a", "x86_64")
+        isUniversalApk = false
+    }
+}
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
