@@ -68,20 +68,6 @@ val settingsButton = Button(this).apply {
         )
     }
 }
-            
-            }
-            text = "CONNECTER"
-            setOnClickListener {
-                val vpnIntent = VpnService.prepare(this@MainActivity)
-
-                if (vpnIntent != null) {
-                    startActivityForResult(vpnIntent, vpnRequestCode)
-                } else {
-                    showVpnAuthorizationGranted()
-                }
-            }
-        }
-
         subscriptionUrl = EditText(this).apply {
             hint = "Lien d'abonnement HTTP/HTTPS"
             setSingleLine(true)
