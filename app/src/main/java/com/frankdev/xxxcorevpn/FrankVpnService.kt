@@ -37,6 +37,16 @@ class FrankVpnService : VpnService() {
 
         throneWorkingDir?.mkdirs()
         throneTempDir?.mkdirs()
+        val setup = SetupOptions().apply {
+            basePath = filesDir.absolutePath
+            workingPath = throneWorkingDir!!.absolutePath
+            tempPath = throneTempDir!!.absolutePath
+            logMaxLines = 300
+            debug = false
+        }
+
+        Mobile.setup(setup)
+        
         return START_NOT_STICKY
     }
     fun openTun(options: TunOptions): Int {
