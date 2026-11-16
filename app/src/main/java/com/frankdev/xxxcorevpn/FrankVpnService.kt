@@ -18,7 +18,8 @@ import io.throneproj.mobile.TunOptions
 import java.net.InetAddress
 
 class FrankVpnService : VpnService() {
-
+        private var throneWorkingDir: File? = null
+    private var throneTempDir: File? = null
     private var connection: ParcelFileDescriptor? = null
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -30,9 +31,12 @@ class FrankVpnService : VpnService() {
         flags: Int,
         startId: Int
     ): Int {
-        return START_NOT_STICKY
-    }
+        throneWorkingDir = File(filesDir, "throne")
+        throneTempDir = File(cacheDir, "throne")
 
+        throneWorkingDir?.mkdirs()
+        throneTempDir?.mkdirs()
+        return START_NOT_STICKY
     fun openTun(options: TunOptions): Int {
         if (prepare(this) != null) {
             error("VPN permission not granted")
