@@ -3,6 +3,7 @@
 package com.frankdev.xxxcorevpn
 
 import android.app.Activity
+import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
