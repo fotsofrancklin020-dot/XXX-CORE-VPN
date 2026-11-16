@@ -15,7 +15,7 @@ import android.widget.Toast
 import android.net.Uri
 
 class MainActivity : Activity() {
-
+    private val vpnRequestCode = 1001
     private lateinit var subscriptionUrl: EditText
     private lateinit var udpServer: EditText
     private lateinit var udpUsername: EditText
