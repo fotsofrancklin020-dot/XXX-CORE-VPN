@@ -40,7 +40,7 @@ class MainActivity : Activity() {
         subscriptionUrl = EditText(this).apply {
             hint = "Colle ton lien d'abonnement ici"
             textSize = 14f
-            singleLine = true
+            setSingleLine(true)
             setText(
                 getPreferences(MODE_PRIVATE)
                     .getString("subscription_url", "")
