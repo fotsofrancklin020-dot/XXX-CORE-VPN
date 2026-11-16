@@ -1,23 +1,31 @@
 
+
 package com.frankdev.xxxcorevpn
 
 import android.app.Activity
 import android.os.Bundle
+import android.text.InputType
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.view.Gravity
 import android.widget.Toast
 import android.net.Uri
 
 class MainActivity : Activity() {
 
     private lateinit var subscriptionUrl: EditText
+    private lateinit var udpServer: EditText
+    private lateinit var udpUsername: EditText
+    private lateinit var udpPassword: EditText
+    private lateinit var udpSni: EditText
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val prefs = getPreferences(MODE_PRIVATE)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -38,18 +46,13 @@ class MainActivity : Activity() {
         }
 
         subscriptionUrl = EditText(this).apply {
-            hint = "Colle ton lien d'abonnement ici"
-            textSize = 14f
+            hint = "Lien d'abonnement HTTP/HTTPS"
             setSingleLine(true)
-            setText(
-                getPreferences(MODE_PRIVATE)
-                    .getString("subscription_url", "")
-            )
+            setText(prefs.getString("subscription_url", ""))
         }
 
-        val saveButton = Button(this).apply {
+        val saveSubscription = Button(this).apply {
             text = "ENREGISTRER L'ABONNEMENT"
-
             setOnClickListener {
                 val url = subscriptionUrl.text.toString().trim()
                 val uri = Uri.parse(url)
@@ -58,8 +61,7 @@ class MainActivity : Activity() {
                     (uri.scheme == "https" || uri.scheme == "http") &&
                     !uri.host.isNullOrBlank()
                 ) {
-                    getPreferences(MODE_PRIVATE)
-                        .edit()
+                    prefs.edit()
                         .putString("subscription_url", url)
                         .apply()
 
@@ -71,18 +73,99 @@ class MainActivity : Activity() {
                 } else {
                     Toast.makeText(
                         this@MainActivity,
-                        "Lien invalide : utilise HTTP ou HTTPS",
+                        "Lien invalide",
                         Toast.LENGTH_LONG
                     ).show()
                 }
             }
         }
 
+        val udpTitle = TextView(this).apply {
+            text = "UDP CUSTOM"
+            textSize = 22f
+            gravity = Gravity.CENTER
+        }
+
+        udpServer = EditText(this).apply {
+            hint = "Server host:port"
+            setSingleLine(true)
+            setText(prefs.getString("udp_server", ""))
+        }
+
+        udpUsername = EditText(this).apply {
+            hint = "Username"
+            setSingleLine(true)
+            setText(prefs.getString("udp_username", ""))
+        }
+
+        udpPassword = EditText(this).apply {
+            hint = "Password"
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            setText(prefs.getString("udp_password", ""))
+        }
+
+        udpSni = EditText(this).apply {
+            hint = "SNI (facultatif)"
+            setSingleLine(true)
+            setText(prefs.getString("udp_sni", ""))
+        }
+
+        val saveUdp = Button(this).apply {
+            text = "ENREGISTRER UDP CUSTOM"
+
+            setOnClickListener {
+                val server = udpServer.text.toString().trim()
+                val username = udpUsername.text.toString().trim()
+                val password = udpPassword.text.toString()
+
+                if (
+                    server.isBlank() ||
+                    !server.contains(":") ||
+                    server.contains(" ") ||
+                    username.isBlank() ||
+                    password.isBlank()
+                ) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Vérifie le serveur et les identifiants",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
+
+                prefs.edit()
+                    .putString("udp_server", server)
+                    .putString("udp_username", username)
+                    .putString("udp_password", password)
+                    .putString(
+                        "udp_sni",
+                        udpSni.text.toString().trim()
+                    )
+                    .apply()
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Configuration UDP enregistrée",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         layout.addView(title)
         layout.addView(status)
         layout.addView(subscriptionUrl)
-        layout.addView(saveButton)
+        layout.addView(saveSubscription)
+
+        layout.addView(udpTitle)
+        layout.addView(udpServer)
+        layout.addView(udpUsername)
+        layout.addView(udpPassword)
+        layout.addView(udpSni)
+        layout.addView(saveUdp)
 
         setContentView(layout)
     }
 }
+
