@@ -28,12 +28,44 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val prefs = getPreferences(MODE_PRIVATE)
+        val themePrefs = getSharedPreferences(
+    "xxx_core_prefs",
+    MODE_PRIVATE
+)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(32, 32, 32, 32)
         }
+        val selectedTheme = themePrefs.getInt("selected_theme", 1)
+
+val backgroundColor: Int
+val accentColor: Int
+val textColor: Int
+
+when (selectedTheme) {
+    0 -> {
+        backgroundColor = android.graphics.Color.WHITE
+        accentColor = android.graphics.Color.BLUE
+        textColor = android.graphics.Color.BLACK
+    }
+    1 -> {
+        backgroundColor = android.graphics.Color.rgb(18, 18, 24)
+        accentColor = android.graphics.Color.rgb(190, 120, 255)
+        textColor = android.graphics.Color.WHITE
+    }
+    2 -> {
+        backgroundColor = android.graphics.Color.BLACK
+        accentColor = android.graphics.Color.rgb(0, 190, 255)
+        textColor = android.graphics.Color.WHITE
+    }
+    else -> {
+        backgroundColor = android.graphics.Color.BLACK
+        accentColor = android.graphics.Color.rgb(230, 190, 70)
+        textColor = android.graphics.Color.WHITE
+    }
+}
 
         val title = TextView(this).apply {
             text = "XXX-CORE VPN"
