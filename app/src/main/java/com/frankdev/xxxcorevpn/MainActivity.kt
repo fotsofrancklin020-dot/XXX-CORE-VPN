@@ -46,6 +46,19 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
         }
 
+        val connectButton = Button(this).apply {
+            text = "CONNECTER"
+            setOnClickListener {
+                val vpnIntent = VpnService.prepare(this@MainActivity)
+
+                if (vpnIntent != null) {
+                    startActivityForResult(vpnIntent, vpnRequestCode)
+                } else {
+                    showVpnAuthorizationGranted()
+                }
+            }
+        }
+
         subscriptionUrl = EditText(this).apply {
             hint = "Lien d'abonnement HTTP/HTTPS"
             setSingleLine(true)
@@ -156,6 +169,7 @@ class MainActivity : Activity() {
 
         layout.addView(title)
         layout.addView(status)
+        layout.addView(connectButton)
         layout.addView(subscriptionUrl)
         layout.addView(saveSubscription)
 
@@ -168,5 +182,40 @@ class MainActivity : Activity() {
 
         setContentView(layout)
     }
+
+    @Deprecated("Deprecated in Android API")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: android.content.Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == vpnRequestCode) {
+            if (resultCode == RESULT_OK) {
+                showVpnAuthorizationGranted()
+            } else {
+                status.text = "VPN déconnecté"
+                Toast.makeText(
+                    this,
+                    "Autorisation VPN refusée",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private fun showVpnAuthorizationGranted() {
+        status.text = "Autorisation accordée — moteur à démarrer"
+
+        Toast.makeText(
+            this,
+            "Autorisation VPN accordée",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
 }
+
+
+                
 
