@@ -23,7 +23,15 @@ class MainActivity : Activity() {
     private lateinit var udpPassword: EditText
     private lateinit var udpSni: EditText
     private lateinit var status: TextView
-
+    private var shouldRefreshTheme = false
+    override fun onResume() {
+    super.onResume()
+    if (shouldRefreshTheme) {
+        shouldRefreshTheme = false
+        recreate()
+    }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -96,7 +104,10 @@ when (selectedTheme) {
 
 val settingsButton = Button(this).apply {
     text = "⚙ PARAMÈTRES"
+
     setOnClickListener {
+        shouldRefreshTheme = true
+
         startActivity(
             Intent(this@MainActivity, SettingsActivity::class.java)
         )
