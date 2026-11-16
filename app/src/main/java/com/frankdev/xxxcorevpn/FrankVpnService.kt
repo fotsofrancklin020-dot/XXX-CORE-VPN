@@ -37,6 +37,7 @@ class FrankVpnService : VpnService() {
         throneWorkingDir?.mkdirs()
         throneTempDir?.mkdirs()
         return START_NOT_STICKY
+    }
     fun openTun(options: TunOptions): Int {
         if (prepare(this) != null) {
             error("VPN permission not granted")
