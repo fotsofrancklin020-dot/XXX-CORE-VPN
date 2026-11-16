@@ -3,6 +3,7 @@
 package com.frankdev.xxxcorevpn
 
 import android.app.Activity
+import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
@@ -46,7 +47,29 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
         }
 
-        val connectButton = Button(this).apply {
+       val connectButton = Button(this).apply {
+    text = "CONNECTER"
+    setOnClickListener {
+        val vpnIntent = VpnService.prepare(this@MainActivity)
+
+        if (vpnIntent != null) {
+            startActivityForResult(vpnIntent, vpnRequestCode)
+        } else {
+            showVpnAuthorizationGranted()
+        }
+    }
+}
+
+val settingsButton = Button(this).apply {
+    text = "⚙ PARAMÈTRES"
+    setOnClickListener {
+        startActivity(
+            Intent(this@MainActivity, SettingsActivity::class.java)
+        )
+    }
+}
+            
+            }
             text = "CONNECTER"
             setOnClickListener {
                 val vpnIntent = VpnService.prepare(this@MainActivity)
@@ -170,6 +193,7 @@ class MainActivity : Activity() {
         layout.addView(title)
         layout.addView(status)
         layout.addView(connectButton)
+        layout.addView(settingsButton)
         layout.addView(subscriptionUrl)
         layout.addView(saveSubscription)
 
