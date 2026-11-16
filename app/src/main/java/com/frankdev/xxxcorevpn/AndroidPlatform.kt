@@ -27,7 +27,7 @@ class AndroidPlatform(
     }
 
     override fun openTun(options: TunOptions): Int {
-        error("TUN implementation pending")
+    return vpnService.openTun(options)
     }
 
     override fun useProcFS(): Boolean = true
