@@ -16,7 +16,23 @@ jobs:
 
       - name: Build ThroneCore
         uses: ./.github/actions/throne-core
-
+      - name: Inspect ThroneCore Java API
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -p app/libs/ThroneCore.aar classes.jar > /tmp/throne-classes.jar
+          classes="$(jar tf /tmp/throne-classes.jar | grep '^io/throneproj/.*\.class$' | grep -v '\$' || true)"
+          if [ -z "$classes" ]; then
+            echo "Aucune classe io.throneproj trouvée"
+            exit 1
+          fi
+          while IFS= read -r entry; do
+            class="${entry%.class}"
+            class="${class//\//.}"
+            echo "===== $class ====="
+            javap -classpath /tmp/throne-classes.jar -public "$class" || true
+          done <<< "$classes"
+  
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
