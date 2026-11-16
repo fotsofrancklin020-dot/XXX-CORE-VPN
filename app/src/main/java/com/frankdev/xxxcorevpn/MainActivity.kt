@@ -71,12 +71,14 @@ when (selectedTheme) {
             text = "XXX-CORE VPN"
             textSize = 28f
             gravity = Gravity.CENTER
+            setTextColor(accentColor)
         }
 
         status = TextView(this).apply {
             text = "VPN déconnecté"
             textSize = 16f
             gravity = Gravity.CENTER
+            setTextColor(textColor)
         }
 
        val connectButton = Button(this).apply {
@@ -221,7 +223,7 @@ val settingsButton = Button(this).apply {
         layout.addView(udpPassword)
         layout.addView(udpSni)
         layout.addView(saveUdp)
-
+        layout.setBackgroundColor(backgroundColor)
         setContentView(layout)
     }
 
