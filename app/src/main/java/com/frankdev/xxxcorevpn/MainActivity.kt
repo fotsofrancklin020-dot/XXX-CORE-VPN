@@ -51,6 +51,16 @@ class MainActivity : Activity() {
     visibility = View.GONE
         }
 
+        val drawerTitle = TextView(this).apply {
+    text = "👑 🛡️ F\nXXX-CORE VPN"
+    textSize = 24f
+    gravity = Gravity.CENTER
+    setTextColor(accentColor)
+    setPadding(0, 24, 0, 32)
+}
+
+drawerLayout.addView(drawerTitle)
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
