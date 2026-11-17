@@ -51,11 +51,13 @@ class SettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val scrollView = ScrollView(this)
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 24, 24, 24)
         }
-
+        scrollView.addView(layout)
         val title = TextView(this).apply {
             text = "XXX-CORE VPN SETTINGS"
             textSize = 23f
@@ -83,7 +85,7 @@ class SettingsActivity : Activity() {
             layout.addView(button)
         }
 
-        setContentView(layout)
+        setContentView(scrollView)
         applySelectedTheme(layout, title)
     }
 
