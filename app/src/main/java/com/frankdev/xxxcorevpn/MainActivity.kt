@@ -119,6 +119,18 @@ val themeSettingsButton = Button(this).apply {
 }
 
 drawerLayout.addView(themeSettingsButton)
+val appSettingsButton = Button(this).apply {
+    text = "App Settings"
+    textSize = 16f
+
+    setOnClickListener {
+        startActivity(
+            Intent(this@MainActivity, SettingsActivity::class.java)
+        )
+    }
+}
+
+drawerLayout.addView(appSettingsButton)
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
