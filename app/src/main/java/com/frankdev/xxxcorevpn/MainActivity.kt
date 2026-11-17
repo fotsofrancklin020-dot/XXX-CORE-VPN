@@ -233,7 +233,7 @@ val settingsButton = Button(this).apply {
                 ).show()
             }
         }
-
+        layout.addView(menuButton)
         layout.addView(title)
         layout.addView(status)
         layout.addView(connectButton)
