@@ -135,7 +135,7 @@ val appSettingsButton = Button(this).apply {
 
 drawerLayout.addView(appSettingsButton)
 
-private fun addDrawerOption(label: String) {
+ fun addDrawerOption(label: String) {
     val optionButton = Button(this).apply {
         text = label
         textSize = 16f
