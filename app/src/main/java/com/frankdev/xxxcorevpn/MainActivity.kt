@@ -85,7 +85,7 @@ when (selectedTheme) {
     }
 }
 val drawerTitle = TextView(this).apply {
-    text = "👑 🛡️ F\nXXX-CORE VPN"
+    text = "👑 🛡️ F\nXXX-CORE VPN\nFRANKDEV Build"
     textSize = 24f
     gravity = Gravity.CENTER
     setTextColor(accentColor)
