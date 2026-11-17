@@ -8,6 +8,9 @@ import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Button
@@ -132,7 +135,7 @@ val appSettingsButton = Button(this).apply {
 
 drawerLayout.addView(appSettingsButton)
 
-fun addDrawerOption(label: String) {
+private fun addDrawerOption(label: String) {
     val optionButton = Button(this).apply {
         text = label
         textSize = 16f
