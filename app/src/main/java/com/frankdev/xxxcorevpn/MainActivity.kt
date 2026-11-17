@@ -271,6 +271,7 @@ val settingsButton = Button(this).apply {
         FrameLayout.LayoutParams.MATCH_PARENT
     )
 )
+rootLayout.addView(drawerLayout)     
 setContentView(rootLayout)
     }
 
