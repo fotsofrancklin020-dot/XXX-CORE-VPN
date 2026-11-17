@@ -77,7 +77,17 @@ when (selectedTheme) {
         textColor = android.graphics.Color.WHITE
     }
 }
-
+val menuButton = Button(this).apply {
+    text = "☰"
+    textSize = 24f
+    setOnClickListener {
+        Toast.makeText(
+            this@MainActivity,
+            "Menu latéral en préparation",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
         val title = TextView(this).apply {
             text = "XXX-CORE VPN"
             textSize = 28f
