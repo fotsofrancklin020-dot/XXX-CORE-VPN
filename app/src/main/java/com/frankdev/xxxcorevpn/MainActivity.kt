@@ -96,12 +96,14 @@ drawerLayout.addView(drawerTitle)
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
+
     setOnClickListener {
-        Toast.makeText(
-            this@MainActivity,
-            "Menu latéral en préparation",
-            Toast.LENGTH_SHORT
-        ).show()
+        drawerLayout.visibility =
+            if (drawerLayout.visibility == View.VISIBLE) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
     }
 }
         val title = TextView(this).apply {
@@ -271,7 +273,13 @@ val settingsButton = Button(this).apply {
         FrameLayout.LayoutParams.MATCH_PARENT
     )
 )
-rootLayout.addView(drawerLayout)     
+val drawerParams = FrameLayout.LayoutParams(
+    (280 * resources.displayMetrics.density).toInt(),
+    FrameLayout.LayoutParams.MATCH_PARENT,
+    Gravity.START
+)
+
+rootLayout.addView(drawerLayout, drawerParams)     
 setContentView(rootLayout)
     }
 
