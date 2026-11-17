@@ -93,6 +93,20 @@ val drawerTitle = TextView(this).apply {
 }
 
 drawerLayout.addView(drawerTitle)
+val customServerButton = Button(this).apply {
+    text = "Custom Server"
+    textSize = 16f
+
+    setOnClickListener {
+        Toast.makeText(
+            this@MainActivity,
+            "Custom Server",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
+
+drawerLayout.addView(customServerButton)
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
