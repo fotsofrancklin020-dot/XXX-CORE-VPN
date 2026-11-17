@@ -131,6 +131,41 @@ val appSettingsButton = Button(this).apply {
 }
 
 drawerLayout.addView(appSettingsButton)
+
+fun addDrawerOption(label: String) {
+    val optionButton = Button(this).apply {
+        text = label
+        textSize = 16f
+
+        setOnClickListener {
+            Toast.makeText(
+                this@MainActivity,
+                "$label sera configuré dans une prochaine étape",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    drawerLayout.addView(optionButton)
+}
+addDrawerOption("V2ray Settings")
+addDrawerOption("OpenVPN Settings")
+addDrawerOption("Mobile IP Hunter")
+addDrawerOption("SlowDns Checker")
+addDrawerOption("Beginner Tutorial")
+addDrawerOption("Hotspot Share")
+addDrawerOption("IP Address Checker")
+addDrawerOption("HostName Finder")
+addDrawerOption("HWID")
+addDrawerOption("Export Config")
+addDrawerOption("Import Config")
+addDrawerOption("Import Cloud Config")
+addDrawerOption("Import QR Code Config")
+addDrawerOption("Host Checker")
+addDrawerOption("Telegram Group")
+addDrawerOption("Optimize Battery")
+addDrawerOption("About Info")
+
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
