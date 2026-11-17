@@ -238,7 +238,14 @@ val settingsButton = Button(this).apply {
         layout.addView(udpSni)
         layout.addView(saveUdp)
         layout.setBackgroundColor(backgroundColor)
-        setContentView(layout)
+        rootLayout.addView(
+    layout,
+    FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT
+    )
+)
+setContentView(rootLayout)
     }
 
     @Deprecated("Deprecated in Android API")
