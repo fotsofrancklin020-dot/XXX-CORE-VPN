@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     "xxx_core_prefs",
     MODE_PRIVATE
 )
+        val rootLayout = FrameLayout(this)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
