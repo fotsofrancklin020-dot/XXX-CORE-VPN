@@ -1,0 +1,45 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_custom_server"
+        android:title="Custom Server" />
+
+    <item
+        android:id="@+id/nav_theme_settings"
+        android:title="Theme Settings" />
+
+    <item
+        android:id="@+id/nav_app_settings"
+        android:title="App Settings" />
+
+    <item
+        android:id="@+id/nav_v2ray_settings"
+        android:title="V2ray Settings" />
+
+    <item
+        android:id="@+id/nav_openvpn_settings"
+        android:title="OpenVPN Settings" />
+
+    <item
+        android:id="@+id/nav_mobile_ip_hunter"
+        android:title="Mobile IP Hunter" />
+
+    <item
+        android:id="@+id/nav_slowdns_checker"
+        android:title="SlowDns Checker" />
+
+    <item
+        android:id="@+id/nav_beginner_tutorial"
+        android:title="Beginner Tutorial" />
+
+    <item
+        android:id="@+id/nav_hotspot_share"
+        android:title="Hotspot Share" />
+
+    <item
+        android:id="@+id/nav_about_info"
+        android:title="About Info" />
+
+</menu>
