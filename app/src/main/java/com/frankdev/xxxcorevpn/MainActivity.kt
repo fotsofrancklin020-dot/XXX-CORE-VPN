@@ -107,6 +107,18 @@ val customServerButton = Button(this).apply {
 }
 
 drawerLayout.addView(customServerButton)
+val themeSettingsButton = Button(this).apply {
+    text = "Theme Settings"
+    textSize = 16f
+
+    setOnClickListener {
+        startActivity(
+            Intent(this@MainActivity, SettingsActivity::class.java)
+        )
+    }
+}
+
+drawerLayout.addView(themeSettingsButton)
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
