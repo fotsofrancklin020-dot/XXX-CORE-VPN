@@ -44,6 +44,13 @@ class MainActivity : Activity() {
 )
         val rootLayout = FrameLayout(this)
 
+        val drawerLayout = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    setPadding(24, 24, 24, 24)
+    setBackgroundColor(android.graphics.Color.rgb(18, 18, 24))
+    visibility = View.GONE
+        }
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
