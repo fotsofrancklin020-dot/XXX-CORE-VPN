@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
+import android.widget.ImageView
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuInflater
@@ -87,18 +88,31 @@ when (selectedTheme) {
         textColor = android.graphics.Color.WHITE
     }
 }
-val drawerTitle = TextView(this).apply {
-    text = "👑 🛡️ F\nXXX-CORE VPN\nFRANKDEV Build"
-    textSize = 24f
-    gravity = Gravity.CENTER
-    setTextColor(accentColor)
-    setPadding(0, 24, 0, 32)
+
+val drawerLogo = ImageView(this).apply {
+    setImageResource(R.drawable.xxx_core_logo)
+    scaleType = ImageView.ScaleType.FIT_CENTER
+    adjustViewBounds = true
+    setPadding(8, 16, 8, 8)
 }
 
-drawerLayout.addView(drawerTitle)
-val customServerButton = Button(this).apply {
-    text = "Custom Server"
-    textSize = 16f
+drawerLayout.addView(
+    drawerLogo,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        (220 * resources.displayMetrics.density).toInt()
+    )
+)
+
+val drawerBrand = TextView(this).apply {
+    text = "XXX-CORE VPN\nFRANKDEV BUILD"
+    textSize = 20f
+    gravity = Gravity.CENTER
+    setTextColor(android.graphics.Color.rgb(0, 190, 255))
+    setPadding(0, 8, 0, 24)
+}
+
+drawerLayout.addView(drawerBrand)
 
     setOnClickListener {
         Toast.makeText(
