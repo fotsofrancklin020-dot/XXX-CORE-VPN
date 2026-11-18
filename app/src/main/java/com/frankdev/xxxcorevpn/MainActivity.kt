@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
+import android.widget.ScrollView
 import android.text.InputType
 import android.widget.ImageView
 import android.view.Gravity
@@ -52,7 +53,7 @@ class MainActivity : Activity() {
     orientation = LinearLayout.VERTICAL
     setPadding(24, 24, 24, 24)
     setBackgroundColor(android.graphics.Color.rgb(18, 18, 24))
-    visibility = View.GONE
+    visibility = View.VISIBLE
         }
 
         val layout = LinearLayout(this).apply {
@@ -115,10 +116,19 @@ val drawerBrand = TextView(this).apply {
 drawerLayout.addView(drawerBrand)
 
     
+
+fun styleDrawerButton(button: Button, icon: Int) {
+    button.textSize = 16f
+    button.setCompoundDrawablesWithIntrinsicBounds(
+        icon, 0, 0, 0
+    )
+    button.compoundDrawablePadding = 16
+    button.gravity = Gravity.CENTER
+}
+
 val customServerButton = Button(this).apply {
     text = "Custom Server"
-    textSize = 16f
-
+    styleDrawerButton(this, android.R.drawable.ic_menu_edit)
     setOnClickListener {
         Toast.makeText(
             this@MainActivity,
@@ -127,38 +137,34 @@ val customServerButton = Button(this).apply {
         ).show()
     }
 }
-
 drawerLayout.addView(customServerButton)
 
 val themeSettingsButton = Button(this).apply {
     text = "Theme Settings"
-    textSize = 16f
-
+    styleDrawerButton(this, android.R.drawable.ic_menu_preferences)
     setOnClickListener {
         startActivity(
             Intent(this@MainActivity, SettingsActivity::class.java)
         )
     }
 }
-
 drawerLayout.addView(themeSettingsButton)
+
 val appSettingsButton = Button(this).apply {
     text = "App Settings"
-    textSize = 16f
-
+    styleDrawerButton(this, android.R.drawable.ic_menu_manage)
     setOnClickListener {
         startActivity(
             Intent(this@MainActivity, SettingsActivity::class.java)
         )
     }
 }
-
 drawerLayout.addView(appSettingsButton)
 
- fun addDrawerOption(label: String) {
+fun addDrawerOption(label: String, icon: Int) {
     val optionButton = Button(this).apply {
         text = label
-        textSize = 16f
+        styleDrawerButton(this, icon)
 
         setOnClickListener {
             Toast.makeText(
@@ -168,40 +174,57 @@ drawerLayout.addView(appSettingsButton)
             ).show()
         }
     }
-
     drawerLayout.addView(optionButton)
 }
-addDrawerOption("V2ray Settings")
-addDrawerOption("OpenVPN Settings")
-addDrawerOption("Mobile IP Hunter")
-addDrawerOption("SlowDns Checker")
-addDrawerOption("Beginner Tutorial")
-addDrawerOption("Hotspot Share")
-addDrawerOption("IP Address Checker")
-addDrawerOption("HostName Finder")
-addDrawerOption("HWID")
-addDrawerOption("Export Config")
-addDrawerOption("Import Config")
-addDrawerOption("Import Cloud Config")
-addDrawerOption("Import QR Code Config")
-addDrawerOption("Host Checker")
-addDrawerOption("Telegram Group")
-addDrawerOption("Optimize Battery")
-addDrawerOption("About Info")
+
+addDrawerOption("V2ray Settings", android.R.drawable.ic_menu_share)
+addDrawerOption("OpenVPN Settings", android.R.drawable.ic_lock_lock)
+addDrawerOption("Mobile IP Hunter", android.R.drawable.ic_menu_mylocation)
+addDrawerOption("SlowDns Checker", android.R.drawable.ic_menu_search)
+addDrawerOption("Beginner Tutorial", android.R.drawable.ic_menu_help)
+addDrawerOption("Hotspot Share", android.R.drawable.ic_menu_upload)
+addDrawerOption("IP Address Checker", android.R.drawable.ic_menu_info_details)
+addDrawerOption("HostName Finder", android.R.drawable.ic_menu_compass)
+addDrawerOption("HWID", android.R.drawable.ic_menu_view)
+addDrawerOption("Export Config", android.R.drawable.ic_menu_save)
+addDrawerOption("Import Config", android.R.drawable.ic_menu_add)
+addDrawerOption("Import Cloud Config", android.R.drawable.ic_menu_upload)
+addDrawerOption("Import QR Code Config", android.R.drawable.ic_menu_camera)
+addDrawerOption("Host Checker", android.R.drawable.ic_menu_directions)
+addDrawerOption("Telegram Group", android.R.drawable.ic_menu_send)
+addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)
+addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)
+
+
+val drawerScrollView = ScrollView(this).apply {
+    isFillViewport = true
+    visibility = View.GONE
+    clipToPadding = false
+}
+
+drawerScrollView.addView(
+    drawerLayout,
+    ScrollView.LayoutParams(
+        ScrollView.LayoutParams.MATCH_PARENT,
+        ScrollView.LayoutParams.WRAP_CONTENT
+    )
+)
+
 
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
 
     setOnClickListener {
-        drawerLayout.visibility =
-            if (drawerLayout.visibility == View.VISIBLE) {
+        drawerScrollView.visibility =
+            if (drawerScrollView.visibility == View.VISIBLE) {
                 View.GONE
             } else {
                 View.VISIBLE
             }
     }
 }
+
         val title = TextView(this).apply {
             text = "XXX-CORE VPN"
             textSize = 28f
@@ -369,13 +392,27 @@ val settingsButton = Button(this).apply {
         FrameLayout.LayoutParams.MATCH_PARENT
     )
 )
+
+val drawerScrollView = ScrollView(this).apply {
+    isFillViewport = true
+    clipToPadding = false
+}
+
+drawerScrollView.addView(
+    drawerLayout,
+    ScrollView.LayoutParams(
+        ScrollView.LayoutParams.MATCH_PARENT,
+        ScrollView.LayoutParams.WRAP_CONTENT
+    )
+)
+
 val drawerParams = FrameLayout.LayoutParams(
     (280 * resources.displayMetrics.density).toInt(),
     FrameLayout.LayoutParams.MATCH_PARENT,
     Gravity.START
 )
 
-rootLayout.addView(drawerLayout, drawerParams)     
+rootLayout.addView(drawerScrollView, drawerParams)     
 setContentView(rootLayout)
     }
 
