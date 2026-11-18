@@ -1,5 +1,4 @@
 
-
 package com.frankdev.xxxcorevpn
 
 import android.app.Activity
@@ -10,9 +9,6 @@ import android.widget.ScrollView
 import android.text.InputType
 import android.widget.ImageView
 import android.view.Gravity
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Button
@@ -23,192 +19,237 @@ import android.widget.Toast
 import android.net.Uri
 
 class MainActivity : Activity() {
+
     private val vpnRequestCode = 1001
+
     private lateinit var subscriptionUrl: EditText
     private lateinit var udpServer: EditText
     private lateinit var udpUsername: EditText
     private lateinit var udpPassword: EditText
     private lateinit var udpSni: EditText
     private lateinit var status: TextView
+
     private var shouldRefreshTheme = false
+
     override fun onResume() {
-    super.onResume()
-    if (shouldRefreshTheme) {
-        shouldRefreshTheme = false
-        recreate()
+        super.onResume()
+
+        if (shouldRefreshTheme) {
+            shouldRefreshTheme = false
+            recreate()
+        }
     }
-    }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val prefs = getPreferences(MODE_PRIVATE)
+
         val themePrefs = getSharedPreferences(
-    "xxx_core_prefs",
-    MODE_PRIVATE
-)
+            "xxx_core_prefs",
+            MODE_PRIVATE
+        )
+
         val rootLayout = FrameLayout(this)
 
+        // DRAWER
         val drawerLayout = LinearLayout(this).apply {
-    orientation = LinearLayout.VERTICAL
-    setPadding(24, 24, 24, 24)
-    setBackgroundColor(android.graphics.Color.rgb(18, 18, 24))
-    visibility = View.VISIBLE
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 24, 24, 24)
+            setBackgroundColor(
+                android.graphics.Color.rgb(18, 18, 24)
+            )
+            visibility = View.VISIBLE
         }
 
+        // DASHBOARD LAYOUT
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(32, 32, 32, 32)
         }
+
+        // THEMES
         val selectedTheme = themePrefs.getInt("selected_theme", 1)
 
-val backgroundColor: Int
-val accentColor: Int
-val textColor: Int
+        val backgroundColor: Int
+        val accentColor: Int
+        val textColor: Int
 
-when (selectedTheme) {
-    0 -> {
-        backgroundColor = android.graphics.Color.WHITE
-        accentColor = android.graphics.Color.BLUE
-        textColor = android.graphics.Color.BLACK
-    }
-    1 -> {
-        backgroundColor = android.graphics.Color.rgb(18, 18, 24)
-        accentColor = android.graphics.Color.rgb(190, 120, 255)
-        textColor = android.graphics.Color.WHITE
-    }
-    2 -> {
-        backgroundColor = android.graphics.Color.BLACK
-        accentColor = android.graphics.Color.rgb(0, 190, 255)
-        textColor = android.graphics.Color.WHITE
-    }
-    else -> {
-        backgroundColor = android.graphics.Color.BLACK
-        accentColor = android.graphics.Color.rgb(230, 190, 70)
-        textColor = android.graphics.Color.WHITE
-    }
-}
-
-val drawerLogo = ImageView(this).apply {
-    setImageResource(R.drawable.xxx_core_logo)
-    scaleType = ImageView.ScaleType.FIT_CENTER
-    adjustViewBounds = true
-    setPadding(8, 16, 8, 8)
-}
-
-drawerLayout.addView(
-    drawerLogo,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        (220 * resources.displayMetrics.density).toInt()
-    )
-)
-
-val drawerBrand = TextView(this).apply {
-    text = "XXX-CORE VPN\nFRANKDEV BUILD"
-    textSize = 20f
-    gravity = Gravity.CENTER
-    setTextColor(android.graphics.Color.rgb(0, 190, 255))
-    setPadding(0, 8, 0, 24)
-}
-
-drawerLayout.addView(drawerBrand)
-
-    
-
-fun styleDrawerButton(button: Button, icon: Int) {
-    button.textSize = 16f
-    button.setCompoundDrawablesWithIntrinsicBounds(
-        icon, 0, 0, 0
-    )
-    button.compoundDrawablePadding = 16
-    button.gravity = Gravity.CENTER
-}
-
-val customServerButton = Button(this).apply {
-    text = "Custom Server"
-    styleDrawerButton(this, android.R.drawable.ic_menu_edit)
-    setOnClickListener {
-        Toast.makeText(
-            this@MainActivity,
-            "Custom Server",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
-drawerLayout.addView(customServerButton)
-
-val themeSettingsButton = Button(this).apply {
-    text = "Theme Settings"
-    styleDrawerButton(this, android.R.drawable.ic_menu_preferences)
-    setOnClickListener {
-        startActivity(
-            Intent(this@MainActivity, SettingsActivity::class.java)
-        )
-    }
-}
-drawerLayout.addView(themeSettingsButton)
-
-val appSettingsButton = Button(this).apply {
-    text = "App Settings"
-    styleDrawerButton(this, android.R.drawable.ic_menu_manage)
-    setOnClickListener {
-        startActivity(
-            Intent(this@MainActivity, SettingsActivity::class.java)
-        )
-    }
-}
-drawerLayout.addView(appSettingsButton)
-
-fun addDrawerOption(label: String, icon: Int) {
-    val optionButton = Button(this).apply {
-        text = label
-        styleDrawerButton(this, icon)
-
-        setOnClickListener {
-            Toast.makeText(
-                this@MainActivity,
-                "$label sera configuré dans une prochaine étape",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-    drawerLayout.addView(optionButton)
-}
-
-addDrawerOption("V2ray Settings", android.R.drawable.ic_menu_share)
-addDrawerOption("OpenVPN Settings", android.R.drawable.ic_lock_lock)
-addDrawerOption("Mobile IP Hunter", android.R.drawable.ic_menu_mylocation)
-addDrawerOption("SlowDns Checker", android.R.drawable.ic_menu_search)
-addDrawerOption("Beginner Tutorial", android.R.drawable.ic_menu_help)
-addDrawerOption("Hotspot Share", android.R.drawable.ic_menu_upload)
-addDrawerOption("IP Address Checker", android.R.drawable.ic_menu_info_details)
-addDrawerOption("HostName Finder", android.R.drawable.ic_menu_compass)
-addDrawerOption("HWID", android.R.drawable.ic_menu_view)
-addDrawerOption("Export Config", android.R.drawable.ic_menu_save)
-addDrawerOption("Import Config", android.R.drawable.ic_menu_add)
-addDrawerOption("Import Cloud Config", android.R.drawable.ic_menu_upload)
-addDrawerOption("Import QR Code Config", android.R.drawable.ic_menu_camera)
-addDrawerOption("Host Checker", android.R.drawable.ic_menu_directions)
-addDrawerOption("Telegram Group", android.R.drawable.ic_menu_send)
-addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)
-addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)
-
-val menuButton = Button(this).apply {
-    text = "☰"
-    textSize = 24f
-
-    setOnClickListener {
-        drawerScrollView.visibility =
-            if (drawerScrollView.visibility == View.VISIBLE) {
-                View.GONE
-            } else {
-                View.VISIBLE
+        when (selectedTheme) {
+            0 -> {
+                backgroundColor = android.graphics.Color.WHITE
+                accentColor = android.graphics.Color.BLUE
+                textColor = android.graphics.Color.BLACK
             }
-    }
-}
 
+            1 -> {
+                backgroundColor = android.graphics.Color.rgb(18, 18, 24)
+                accentColor = android.graphics.Color.rgb(190, 120, 255)
+                textColor = android.graphics.Color.WHITE
+            }
+
+            2 -> {
+                backgroundColor = android.graphics.Color.BLACK
+                accentColor = android.graphics.Color.rgb(0, 190, 255)
+                textColor = android.graphics.Color.WHITE
+            }
+
+            else -> {
+                backgroundColor = android.graphics.Color.BLACK
+                accentColor = android.graphics.Color.rgb(230, 190, 70)
+                textColor = android.graphics.Color.WHITE
+            }
+        }
+
+        // DRAWER LOGO
+        val drawerLogo = ImageView(this).apply {
+            setImageResource(R.drawable.xxx_core_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            setPadding(8, 16, 8, 8)
+        }
+
+        drawerLayout.addView(
+            drawerLogo,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (220 * resources.displayMetrics.density).toInt()
+            )
+        )
+
+        // DRAWER BRAND
+        val drawerBrand = TextView(this).apply {
+            text = "XXX-CORE VPN\nFRANKDEV BUILD"
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.rgb(0, 190, 255))
+            setPadding(0, 8, 0, 24)
+        }
+
+        drawerLayout.addView(drawerBrand)
+
+        // DRAWER BUTTON STYLE
+        fun styleDrawerButton(button: Button, icon: Int) {
+            button.textSize = 16f
+            button.setCompoundDrawablesWithIntrinsicBounds(
+                icon, 0, 0, 0
+            )
+            button.compoundDrawablePadding = 16
+            button.gravity = Gravity.CENTER
+        }
+
+        // CUSTOM SERVER
+        val customServerButton = Button(this).apply {
+            text = "Custom Server"
+            styleDrawerButton(this, android.R.drawable.ic_menu_edit)
+
+            setOnClickListener {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Custom Server",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        drawerLayout.addView(customServerButton)
+
+        // THEME SETTINGS
+        val themeSettingsButton = Button(this).apply {
+            text = "Theme Settings"
+            styleDrawerButton(this, android.R.drawable.ic_menu_preferences)
+
+            setOnClickListener {
+                startActivity(
+                    Intent(this@MainActivity, SettingsActivity::class.java)
+                )
+            }
+        }
+
+        drawerLayout.addView(themeSettingsButton)
+
+        // APP SETTINGS
+        val appSettingsButton = Button(this).apply {
+            text = "App Settings"
+            styleDrawerButton(this, android.R.drawable.ic_menu_manage)
+
+            setOnClickListener {
+                startActivity(
+                    Intent(this@MainActivity, SettingsActivity::class.java)
+                )
+            }
+        }
+
+        drawerLayout.addView(appSettingsButton)
+
+        // OTHER DRAWER OPTIONS
+        fun addDrawerOption(label: String, icon: Int) {
+            val optionButton = Button(this).apply {
+                text = label
+                styleDrawerButton(this, icon)
+
+                setOnClickListener {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "$label sera configuré dans une prochaine étape",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            drawerLayout.addView(optionButton)
+        }
+
+        addDrawerOption("V2ray Settings", android.R.drawable.ic_menu_share)
+        addDrawerOption("OpenVPN Settings", android.R.drawable.ic_lock_lock)
+        addDrawerOption("Mobile IP Hunter", android.R.drawable.ic_menu_mylocation)
+        addDrawerOption("SlowDns Checker", android.R.drawable.ic_menu_search)
+        addDrawerOption("Beginner Tutorial", android.R.drawable.ic_menu_help)
+        addDrawerOption("Hotspot Share", android.R.drawable.ic_menu_upload)
+        addDrawerOption("IP Address Checker", android.R.drawable.ic_menu_info_details)
+        addDrawerOption("HostName Finder", android.R.drawable.ic_menu_compass)
+        addDrawerOption("HWID", android.R.drawable.ic_menu_view)
+        addDrawerOption("Export Config", android.R.drawable.ic_menu_save)
+        addDrawerOption("Import Config", android.R.drawable.ic_menu_add)
+        addDrawerOption("Import Cloud Config", android.R.drawable.ic_menu_upload)
+        addDrawerOption("Import QR Code Config", android.R.drawable.ic_menu_camera)
+        addDrawerOption("Host Checker", android.R.drawable.ic_menu_directions)
+        addDrawerOption("Telegram Group", android.R.drawable.ic_menu_send)
+        addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)
+        addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)
+
+        // SCROLLVIEW - DECLARED ONLY ONCE
+        val drawerScrollView = ScrollView(this).apply {
+            isFillViewport = true
+            visibility = View.GONE
+            clipToPadding = false
+        }
+
+        drawerScrollView.addView(
+            drawerLayout,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // MENU BUTTON
+        val menuButton = Button(this).apply {
+            text = "☰"
+            textSize = 24f
+
+            setOnClickListener {
+                drawerScrollView.visibility =
+                    if (drawerScrollView.visibility == View.VISIBLE) {
+                        View.GONE
+                    } else {
+                        View.VISIBLE
+                    }
+            }
+        }
+
+        // DASHBOARD TITLE
         val title = TextView(this).apply {
             text = "XXX-CORE VPN"
             textSize = 28f
@@ -216,6 +257,7 @@ val menuButton = Button(this).apply {
             setTextColor(accentColor)
         }
 
+        // VPN STATUS
         status = TextView(this).apply {
             text = "VPN déconnecté"
             textSize = 16f
@@ -223,30 +265,35 @@ val menuButton = Button(this).apply {
             setTextColor(textColor)
         }
 
-       val connectButton = Button(this).apply {
-    text = "CONNECTER"
-    setOnClickListener {
-        val vpnIntent = VpnService.prepare(this@MainActivity)
+        // CONNECT BUTTON
+        val connectButton = Button(this).apply {
+            text = "CONNECTER"
 
-        if (vpnIntent != null) {
-            startActivityForResult(vpnIntent, vpnRequestCode)
-        } else {
-            showVpnAuthorizationGranted()
+            setOnClickListener {
+                val vpnIntent = VpnService.prepare(this@MainActivity)
+
+                if (vpnIntent != null) {
+                    startActivityForResult(vpnIntent, vpnRequestCode)
+                } else {
+                    showVpnAuthorizationGranted()
+                }
+            }
         }
-    }
-}
 
-val settingsButton = Button(this).apply {
-    text = "⚙ PARAMÈTRES"
+        // SETTINGS BUTTON
+        val settingsButton = Button(this).apply {
+            text = "⚙ PARAMÈTRES"
 
-    setOnClickListener {
-        shouldRefreshTheme = true
+            setOnClickListener {
+                shouldRefreshTheme = true
 
-        startActivity(
-            Intent(this@MainActivity, SettingsActivity::class.java)
-        )
-    }
-}
+                startActivity(
+                    Intent(this@MainActivity, SettingsActivity::class.java)
+                )
+            }
+        }
+
+        // SUBSCRIPTION
         subscriptionUrl = EditText(this).apply {
             hint = "Lien d'abonnement HTTP/HTTPS"
             setSingleLine(true)
@@ -255,6 +302,7 @@ val settingsButton = Button(this).apply {
 
         val saveSubscription = Button(this).apply {
             text = "ENREGISTRER L'ABONNEMENT"
+
             setOnClickListener {
                 val url = subscriptionUrl.text.toString().trim()
                 val uri = Uri.parse(url)
@@ -282,6 +330,7 @@ val settingsButton = Button(this).apply {
             }
         }
 
+        // UDP CUSTOM
         val udpTitle = TextView(this).apply {
             text = "UDP CUSTOM"
             textSize = 22f
@@ -334,6 +383,7 @@ val settingsButton = Button(this).apply {
                         "Vérifie le serveur et les identifiants",
                         Toast.LENGTH_LONG
                     ).show()
+
                     return@setOnClickListener
                 }
 
@@ -354,6 +404,8 @@ val settingsButton = Button(this).apply {
                 ).show()
             }
         }
+
+        // ADD DASHBOARD ELEMENTS
         layout.addView(menuButton)
         layout.addView(title)
         layout.addView(status)
@@ -361,46 +413,37 @@ val settingsButton = Button(this).apply {
         layout.addView(settingsButton)
         layout.addView(subscriptionUrl)
         layout.addView(saveSubscription)
-
         layout.addView(udpTitle)
         layout.addView(udpServer)
         layout.addView(udpUsername)
         layout.addView(udpPassword)
         layout.addView(udpSni)
         layout.addView(saveUdp)
+
         layout.setBackgroundColor(backgroundColor)
+
+        // ADD DASHBOARD TO ROOT
         rootLayout.addView(
-    layout,
-    FrameLayout.LayoutParams(
-        FrameLayout.LayoutParams.MATCH_PARENT,
-        FrameLayout.LayoutParams.MATCH_PARENT
-    )
-)
+            layout,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
 
-val drawerScrollView = ScrollView(this).apply {
-    isFillViewport = true
-    visibility = View.GONE
-    clipToPadding = false
-}
+        // DRAWER POSITION
+        val drawerParams = FrameLayout.LayoutParams(
+            (280 * resources.displayMetrics.density).toInt(),
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            Gravity.START
+        )
 
-drawerScrollView.addView(
-    drawerLayout,
-    FrameLayout.LayoutParams(
-    FrameLayout.LayoutParams.MATCH_PARENT,
-    FrameLayout.LayoutParams.WRAP_CONTENT
-)
-    )
+        rootLayout.addView(drawerScrollView, drawerParams)
 
-val drawerParams = FrameLayout.LayoutParams(
-    (280 * resources.displayMetrics.density).toInt(),
-    FrameLayout.LayoutParams.MATCH_PARENT,
-    Gravity.START
-)
-
-rootLayout.addView(drawerScrollView, drawerParams)     
-setContentView(rootLayout)
+        setContentView(rootLayout)
     }
 
+    // VPN AUTHORIZATION RESULT
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(
         requestCode: Int,
@@ -414,6 +457,7 @@ setContentView(rootLayout)
                 showVpnAuthorizationGranted()
             } else {
                 status.text = "VPN déconnecté"
+
                 Toast.makeText(
                     this,
                     "Autorisation VPN refusée",
@@ -423,6 +467,7 @@ setContentView(rootLayout)
         }
     }
 
+    // VPN AUTHORIZATION GRANTED
     private fun showVpnAuthorizationGranted() {
         status.text = "Autorisation accordée — moteur à démarrer"
 
@@ -433,6 +478,7 @@ setContentView(rootLayout)
         ).show()
     }
 }
+
 
 
                 
