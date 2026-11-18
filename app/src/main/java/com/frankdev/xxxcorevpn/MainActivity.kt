@@ -114,6 +114,11 @@ val drawerBrand = TextView(this).apply {
 
 drawerLayout.addView(drawerBrand)
 
+    
+val customServerButton = Button(this).apply {
+    text = "Custom Server"
+    textSize = 16f
+
     setOnClickListener {
         Toast.makeText(
             this@MainActivity,
@@ -124,6 +129,7 @@ drawerLayout.addView(drawerBrand)
 }
 
 drawerLayout.addView(customServerButton)
+
 val themeSettingsButton = Button(this).apply {
     text = "Theme Settings"
     textSize = 16f
