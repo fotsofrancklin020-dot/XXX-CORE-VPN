@@ -195,22 +195,6 @@ addDrawerOption("Telegram Group", android.R.drawable.ic_menu_send)
 addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)
 addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)
 
-
-val drawerScrollView = ScrollView(this).apply {
-    isFillViewport = true
-    visibility = View.GONE
-    clipToPadding = false
-}
-
-drawerScrollView.addView(
-    drawerLayout,
-    ScrollView.LayoutParams(
-        ScrollView.LayoutParams.MATCH_PARENT,
-        ScrollView.LayoutParams.WRAP_CONTENT
-    )
-)
-
-
 val menuButton = Button(this).apply {
     text = "☰"
     textSize = 24f
@@ -395,16 +379,17 @@ val settingsButton = Button(this).apply {
 
 val drawerScrollView = ScrollView(this).apply {
     isFillViewport = true
+    visibility = View.GONE
     clipToPadding = false
 }
 
 drawerScrollView.addView(
     drawerLayout,
-    ScrollView.LayoutParams(
-        ScrollView.LayoutParams.MATCH_PARENT,
-        ScrollView.LayoutParams.WRAP_CONTENT
-    )
+    FrameLayout.LayoutParams(
+    FrameLayout.LayoutParams.MATCH_PARENT,
+    FrameLayout.LayoutParams.WRAP_CONTENT
 )
+    )
 
 val drawerParams = FrameLayout.LayoutParams(
     (280 * resources.displayMetrics.density).toInt(),
