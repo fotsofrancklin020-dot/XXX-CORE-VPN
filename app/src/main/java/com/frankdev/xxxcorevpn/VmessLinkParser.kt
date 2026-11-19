@@ -74,6 +74,17 @@ object VmessLinkParser {
 
     fun parse(link: String): VmessConfig {
         val value = link.trim()
+
+        // Import direct du JSON Xray VMess.
+        if (value.startsWith("{")) {
+            val json = try {
+                JSONObject(value)
+            } catch (_: Exception) {
+                throw IllegalArgumentException("JSON VMess invalide.")
+            }
+            return parseXrayConfig(json)
+        }
+
         require(value.startsWith("vmess://", true)) {
             "Ce lien n'est pas un lien VMess."
         }
@@ -105,6 +116,242 @@ object VmessLinkParser {
         return parseUrlConfig(value)
     }
 
+    // Import JSON Xray VMess.
+    private fun parseXrayConfig(json: JSONObject): VmessConfig {
+        val protocol = json.value("protocol").lowercase()
+        require(protocol.isBlank() || protocol == "vmess") {
+            "Ce JSON ne contient pas un protocole VMess."
+        }
+
+        val settings = json.optJSONObject("settings")
+            ?: throw IllegalArgumentException("Section settings absente.")
+
+        val vnext = settings.optJSONArray("vnext")
+            ?: throw IllegalArgumentException("Section vnext absente.")
+
+        require(vnext.length() > 0) {
+            "Aucun serveur VMess trouvé."
+        }
+
+        val node = vnext.getJSONObject(0)
+
+        val users = node.optJSONArray("users")
+            ?: throw IllegalArgumentException("Utilisateur VMess absent.")
+
+        require(users.length() > 0) {
+            "Aucun utilisateur VMess trouvé."
+        }
+
+        val user = users.getJSONObject(0)
+
+        val server = node.value("address").trim()
+        val port = node.value("port").toIntOrNull()
+            ?: throw IllegalArgumentException("Port VMess invalide.")
+        val uuid = user.value("id").trim()
+
+        validateServer(server, port, uuid)
+
+        val alterId = (user.value("alterId")
+            .ifBlank { user.value("alter_id") }
+            .ifBlank { "0" }).toIntOrNull()
+            ?: throw IllegalArgumentException("Alter ID invalide.")
+
+        require(alterId >= 0) {
+            "Alter ID invalide."
+        }
+
+        val securityValue = user.value("security")
+            .ifBlank { user.value("encryption") }
+
+        val security = normalizeSecurity(securityValue)
+
+        val stream = json.optJSONObject("streamSettings") ?: JSONObject()
+
+        val network = stream.value("network")
+            .ifBlank { "tcp" }
+
+        val tlsMode = stream.value("security").lowercase()
+
+        require(tlsMode != "reality") {
+            "VMess Reality n'est pas encore pris en charge."
+        }
+
+        require(
+            tlsMode.isBlank() ||
+            tlsMode == "none" ||
+            tlsMode == "tls"
+        ) {
+            "Sécurité de transport non prise en charge : $tlsMode"
+        }
+
+        val tlsEnabled = tlsMode == "tls"
+        val tls = stream.optJSONObject("tlsSettings") ?: JSONObject()
+
+        val alpnArray = tls.optJSONArray("alpn")
+        val alpn = if (alpnArray != null) {
+            (0 until alpnArray.length())
+                .map { alpnArray.optString(it) }
+                .filter { it.isNotBlank() }
+        } else {
+            emptyList()
+        }
+
+        val fingerprint = tls.value("fingerprint")
+
+        if (tlsEnabled && fingerprint.isNotBlank()) {
+            require(fingerprint in allowedFingerprints) {
+                "Empreinte TLS non prise en charge : $fingerprint"
+            }
+        }
+
+        val insecure = if (tls.has("allowInsecure")) {
+            tls.value("allowInsecure")
+        } else {
+            tls.value("allow_insecure")
+        }
+
+        val transportName = network.lowercase()
+        val tcpSettings = stream.optJSONObject("tcpSettings")
+            ?: JSONObject()
+        val rawHeader = tcpSettings.optJSONObject("header")
+            ?: JSONObject()
+
+        val rawType = rawHeader.value("type").lowercase()
+
+        val rawHttp =
+            transportName in setOf("", "tcp", "raw") &&
+            rawType == "http"
+
+        val transport = normalizeTransport(transportName, rawHttp)
+
+        var path = ""
+        var host = ""
+        var method = ""
+        var headers = emptyMap<String, String>()
+        var serviceName = ""
+
+        when (transport) {
+            "ws" -> {
+                val ws = stream.optJSONObject("wsSettings")
+                    ?: JSONObject()
+
+                path = ws.value("path")
+
+                val wsHeaders = ws.optJSONObject("headers")
+                    ?: JSONObject()
+
+                host = wsHeaders.value("Host").ifBlank {
+                    wsHeaders.value("host")
+                }
+
+                headers = jsonHeaders(wsHeaders)
+            }
+
+            "http" -> {
+                val http = stream.optJSONObject("httpSettings")
+                    ?: JSONObject()
+
+                path = http.value("path")
+
+                val hosts = http.optJSONArray("host")
+
+                host = if (hosts != null && hosts.length() > 0) {
+                    (0 until hosts.length()).joinToString(",") {
+                        hosts.optString(it)
+                    }
+                } else {
+                    http.value("host")
+                }
+
+                method = http.value("method")
+
+                headers = jsonHeaders(
+                    http.optJSONObject("headers") ?: JSONObject()
+                )
+
+                if (rawHttp) {
+                    val request = rawHeader.optJSONObject("request")
+                        ?: JSONObject()
+
+                    method = request.value("method").ifBlank {
+                        "GET"
+                    }
+
+                    val paths = request.optJSONArray("path")
+
+                    if (paths != null && paths.length() > 0) {
+                        path = paths.optString(0)
+                    }
+                }
+            }
+
+            "grpc" -> {
+                val grpc = stream.optJSONObject("grpcSettings")
+                    ?: JSONObject()
+
+                serviceName = grpc.value("serviceName")
+            }
+
+            "httpupgrade" -> {
+                val upgrade = stream.optJSONObject("httpupgradeSettings")
+                    ?: JSONObject()
+
+                path = upgrade.value("path")
+
+                val upgradeHeaders = upgrade.optJSONObject("headers")
+                    ?: JSONObject()
+
+                host = upgradeHeaders.value("Host").ifBlank {
+                    upgradeHeaders.value("host")
+                }
+
+                headers = jsonHeaders(upgradeHeaders)
+            }
+        }
+
+        return VmessConfig(
+            name = json.value("tag").ifBlank {
+                json.value("ps")
+            },
+            server = server,
+            port = port,
+            uuid = uuid,
+            alterId = alterId,
+            security = security,
+            transport = transport,
+            rawHttp = rawHttp,
+            path = path,
+            host = host,
+            tlsEnabled = tlsEnabled,
+            serverName = tls.value("serverName"),
+            alpn = alpn,
+            allowInsecure = parseBoolean(
+                insecure,
+                "allowInsecure"
+            ),
+            fingerprint = if (tlsEnabled) fingerprint else "",
+            cipherSuites = emptyList(),
+            globalPadding = false,
+            authenticatedLength = false,
+            packetEncoding = "",
+            serviceName = serviceName,
+            transportMethod = method,
+            transportHeaders = headers
+        )
+    }
+
+    private fun jsonHeaders(json: JSONObject): Map<String, String> {
+        val result = linkedMapOf<String, String>()
+        val keys = json.keys()
+
+        while (keys.hasNext()) {
+            val key = keys.next()
+            result[key] = json.value(key)
+        }
+
+        return result
+    }
+
     private fun parseBase64Config(
         json: JSONObject,
         originalLink: String
@@ -133,6 +380,7 @@ object VmessLinkParser {
 
         val baseTransport = normalizeTransport(network, rawHttp)
         var path = json.value("path")
+
         if (rawHttp) {
             path = path.split(",").map { it.trim() }
                 .firstOrNull { it.isNotBlank() }.orEmpty()
@@ -140,20 +388,27 @@ object VmessLinkParser {
 
         val extras = parseExtra(json.value("throneExtra"))
 
-        // Les options de transport présentes dans throneExtra
-        // remplacent les valeurs de transport du JSON principal.
-        val transport = extras.transport.ifBlank { baseTransport }
-        val finalPath = extras.path.ifBlank {
-            if (transport == "grpc") path else path
+        val transport = extras.transport.ifBlank {
+            baseTransport
         }
-        val finalHost = extras.host.ifBlank { json.value("host") }
+
+        val finalPath = extras.path.ifBlank { path }
+        val finalHost = extras.host.ifBlank {
+            json.value("host")
+        }
 
         val tlsValue = json.value("tls").lowercase().trim()
-        require(tlsValue.isBlank() || tlsValue == "tls" || tlsValue == "none") {
+
+        require(
+            tlsValue.isBlank() ||
+            tlsValue == "tls" ||
+            tlsValue == "none"
+        ) {
             "Mode TLS non pris en charge : $tlsValue"
         }
 
         val tlsEnabled = tlsValue == "tls"
+
         val insecure = if (json.has("insecure")) {
             json.value("insecure")
         } else {
@@ -161,6 +416,7 @@ object VmessLinkParser {
         }
 
         val fingerprint = json.value("fp").trim()
+
         if (tlsEnabled && fingerprint.isNotBlank()) {
             require(fingerprint in allowedFingerprints) {
                 "Empreinte TLS non prise en charge : $fingerprint"
@@ -209,6 +465,7 @@ object VmessLinkParser {
         val server = uri.host.orEmpty()
         val port = if (uri.port > 0) uri.port else 443
         val uuid = uri.userInfo.orEmpty().substringBefore(":")
+
         validateServer(server, port, uuid)
 
         val security = normalizeSecurity(
@@ -232,10 +489,12 @@ object VmessLinkParser {
 
         val path = uri.getQueryParameter("path").orEmpty()
         val host = uri.getQueryParameter("host").orEmpty()
+
         val sni = uri.getQueryParameter("sni")
             ?: uri.getQueryParameter("peer").orEmpty()
 
         val fingerprint = uri.getQueryParameter("fp").orEmpty()
+
         if (tlsEnabled && fingerprint.isNotBlank()) {
             require(fingerprint in allowedFingerprints) {
                 "Empreinte TLS non prise en charge : $fingerprint"
@@ -313,7 +572,9 @@ object VmessLinkParser {
         config: VmessConfig,
         tag: String = "vmess-proxy"
     ): JSONObject {
-        require(tag.isNotBlank()) { "Le tag sing-box est obligatoire." }
+        require(tag.isNotBlank()) {
+            "Le tag sing-box est obligatoire."
+        }
 
         val outbound = JSONObject()
             .put("type", "vmess")
@@ -325,15 +586,19 @@ object VmessLinkParser {
         if (config.security != "auto") {
             outbound.put("security", config.security)
         }
+
         if (config.alterId > 0) {
             outbound.put("alter_id", config.alterId)
         }
+
         if (config.globalPadding) {
             outbound.put("global_padding", true)
         }
+
         if (config.authenticatedLength) {
             outbound.put("authenticated_length", true)
         }
+
         if (config.packetEncoding.isNotBlank()) {
             outbound.put("packet_encoding", config.packetEncoding)
         }
@@ -344,13 +609,19 @@ object VmessLinkParser {
             if (config.serverName.isNotBlank() && !config.disableSni) {
                 tls.put("server_name", config.serverName)
             }
-            if (config.allowInsecure) tls.put("insecure", true)
+
+            if (config.allowInsecure) {
+                tls.put("insecure", true)
+            }
+
             if (config.alpn.isNotEmpty()) {
                 tls.put("alpn", JSONArray(config.alpn))
             }
+
             if (config.cipherSuites.isNotEmpty()) {
                 tls.put("cipher_suites", JSONArray(config.cipherSuites))
             }
+
             if (config.fingerprint.isNotBlank()) {
                 tls.put(
                     "utls",
@@ -358,6 +629,7 @@ object VmessLinkParser {
                         .put("fingerprint", config.fingerprint)
                 )
             }
+
             outbound.put("tls", tls)
         }
 
@@ -379,16 +651,33 @@ object VmessLinkParser {
 
         when (c.transport) {
             "ws", "httpupgrade" -> {
-                if (c.path.isNotBlank()) result.put("path", c.path)
+                if (c.path.isNotBlank()) {
+                    result.put("path", c.path)
+                }
+
                 val headers = JSONObject()
-                if (c.host.isNotBlank()) headers.put("Host", c.host)
-                c.transportHeaders.forEach { (k, v) -> headers.put(k, v) }
-                if (headers.length() > 0) result.put("headers", headers)
+
+                if (c.host.isNotBlank()) {
+                    headers.put("Host", c.host)
+                }
+
+                c.transportHeaders.forEach { (k, v) ->
+                    headers.put(k, v)
+                }
+
+                if (headers.length() > 0) {
+                    result.put("headers", headers)
+                }
+
                 if (c.transport == "ws" && c.maxEarlyData > 0) {
                     result.put("max_early_data", c.maxEarlyData)
                 }
+
                 if (c.earlyDataHeaderName.isNotBlank()) {
-                    result.put("early_data_header_name", c.earlyDataHeaderName)
+                    result.put(
+                        "early_data_header_name",
+                        c.earlyDataHeaderName
+                    )
                 }
             }
 
@@ -399,18 +688,31 @@ object VmessLinkParser {
                         JSONArray(c.host.split(",").map { it.trim() })
                     )
                 }
-                if (c.path.isNotBlank()) result.put("path", c.path)
+
+                if (c.path.isNotBlank()) {
+                    result.put("path", c.path)
+                }
+
                 if (c.transportMethod.isNotBlank()) {
                     result.put("method", c.transportMethod)
                 } else if (c.rawHttp) {
                     result.put("method", "GET")
                 }
+
                 val headers = JSONObject()
-                c.transportHeaders.forEach { (k, v) -> headers.put(k, v) }
-                if (headers.length() > 0) result.put("headers", headers)
+
+                c.transportHeaders.forEach { (k, v) ->
+                    headers.put(k, v)
+                }
+
+                if (headers.length() > 0) {
+                    result.put("headers", headers)
+                }
+
                 if (c.idleTimeout.isNotBlank()) {
                     result.put("idle_timeout", c.idleTimeout)
                 }
+
                 if (c.pingTimeout.isNotBlank()) {
                     result.put("ping_timeout", c.pingTimeout)
                 }
@@ -418,12 +720,15 @@ object VmessLinkParser {
 
             "grpc" -> {
                 val service = c.serviceName.ifBlank { c.path }
+
                 if (service.isNotBlank()) {
                     result.put("service_name", service)
                 }
+
                 if (c.idleTimeout.isNotBlank()) {
                     result.put("idle_timeout", c.idleTimeout)
                 }
+
                 if (c.pingTimeout.isNotBlank()) {
                     result.put("ping_timeout", c.pingTimeout)
                 }
@@ -439,26 +744,44 @@ object VmessLinkParser {
                 "Transport non pris en charge : ${c.transport}"
             )
         }
+
         return result
     }
 
     private fun buildMultiplex(m: MultiplexConfig): JSONObject? {
         if (!m.specified) return null
-        if (!m.enabled) return JSONObject().put("enabled", false)
+
+        if (!m.enabled) {
+            return JSONObject().put("enabled", false)
+        }
 
         val result = JSONObject().put("enabled", true)
-        if (m.protocol.isNotBlank()) result.put("protocol", m.protocol)
+
+        if (m.protocol.isNotBlank()) {
+            result.put("protocol", m.protocol)
+        }
+
         if (m.maxConnections > 0) {
             result.put("max_connections", m.maxConnections)
         }
-        if (m.minStreams > 0) result.put("min_streams", m.minStreams)
-        if (m.maxStreams > 0) result.put("max_streams", m.maxStreams)
-        if (m.padding) result.put("padding", true)
+
+        if (m.minStreams > 0) {
+            result.put("min_streams", m.minStreams)
+        }
+
+        if (m.maxStreams > 0) {
+            result.put("max_streams", m.maxStreams)
+        }
+
+        if (m.padding) {
+            result.put("padding", true)
+        }
 
         if (m.brutalEnabled) {
             require(m.brutalUpMbps > 0 && m.brutalDownMbps > 0) {
                 "Les débits Brutal doivent être supérieurs à zéro."
             }
+
             result.put(
                 "brutal",
                 JSONObject().put("enabled", true)
@@ -466,6 +789,7 @@ object VmessLinkParser {
                     .put("down_mbps", m.brutalDownMbps)
             )
         }
+
         return result
     }
 
@@ -490,6 +814,7 @@ object VmessLinkParser {
         if (raw.isBlank()) return ExtraOptions()
 
         val uri = Uri.parse("https://localhost/?$raw")
+
         val known = setOf(
             "globalPadding", "authenticatedLength", "packetEncoding",
             "type", "headerType", "host", "path", "method", "headers",
@@ -499,7 +824,9 @@ object VmessLinkParser {
             "mux_max_streams", "mux_padding", "brutal_enabled",
             "brutal_up_mbps", "brutal_down_mbps"
         )
+
         val unknown = uri.queryParameterNames - known
+
         require(unknown.isEmpty()) {
             "Options avancées inconnues : ${unknown.joinToString(", ")}"
         }
@@ -545,7 +872,9 @@ object VmessLinkParser {
             "mux_min_streams", "mux_max_streams", "mux_padding",
             "brutal_enabled", "brutal_up_mbps", "brutal_down_mbps"
         )
+
         val specified = uri.queryParameterNames.any { it in keys }
+
         if (!specified) return MultiplexConfig()
 
         val brutal = parseBoolean(
@@ -584,21 +913,34 @@ object VmessLinkParser {
 
     private fun parseHeaders(raw: String): Map<String, String> {
         if (raw.isBlank()) return emptyMap()
+
         val parts = raw.split("|")
+
         require(parts.size % 2 == 0) {
             "La liste des en-têtes HTTP est incomplète."
         }
+
         val result = linkedMapOf<String, String>()
+
         parts.chunked(2).forEach {
             val key = it[0].trim()
-            require(key.isNotBlank()) { "Nom d'en-tête vide." }
+
+            require(key.isNotBlank()) {
+                "Nom d'en-tête vide."
+            }
+
             result[key] = it[1]
         }
+
         return result
     }
 
-    private fun normalizeTransport(value: String, rawHttp: Boolean): String {
+    private fun normalizeTransport(
+        value: String,
+        rawHttp: Boolean
+    ): String {
         if (rawHttp) return "http"
+
         return when (value.lowercase().trim()) {
             "", "tcp", "raw" -> "tcp"
             "ws", "websocket" -> "ws"
@@ -613,32 +955,53 @@ object VmessLinkParser {
     }
 
     private fun normalizeSecurity(value: String): String {
-        val security = value.trim().lowercase().ifBlank { "auto" }
+        val security = value.trim().lowercase().ifBlank {
+            "auto"
+        }
+
         require(security in allowedSecurity) {
             "Sécurité VMess non prise en charge : $security"
         }
+
         return security
     }
 
     private fun normalizePacketEncoding(value: String): String {
         val encoding = value.trim().lowercase()
+
         require(encoding in setOf("", "none", "packetaddr", "xudp")) {
             "Encodage de paquets inconnu : $encoding"
         }
+
         return if (encoding == "none") "" else encoding
     }
 
-    private fun validateServer(server: String, port: Int, uuid: String) {
-        require(server.isNotBlank() &&
+    private fun validateServer(
+        server: String,
+        port: Int,
+        uuid: String
+    ) {
+        require(
+            server.isNotBlank() &&
             !server.any { it.isWhitespace() } &&
-            !server.contains("://")) {
+            !server.contains("://")
+        ) {
             "Adresse du serveur invalide."
         }
-        require(port in 1..65535) { "Port hors limites." }
-        require(uuidPattern.matches(uuid)) { "UUID VMess invalide." }
+
+        require(port in 1..65535) {
+            "Port hors limites."
+        }
+
+        require(uuidPattern.matches(uuid)) {
+            "UUID VMess invalide."
+        }
     }
 
-    private fun parseBoolean(value: String, field: String): Boolean {
+    private fun parseBoolean(
+        value: String,
+        field: String
+    ): Boolean {
         return when (value.trim().lowercase()) {
             "", "0", "false" -> false
             "1", "true" -> true
@@ -648,23 +1011,32 @@ object VmessLinkParser {
         }
     }
 
-    private fun splitList(value: String, separators: String): List<String> {
+    private fun splitList(
+        value: String,
+        separators: String
+    ): List<String> {
         if (value.isBlank()) return emptyList()
+
         return value.split(Regex("[$separators]"))
-            .map { it.trim() }.filter { it.isNotBlank() }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
     }
 
     private fun decodeBase64(payload: String): String {
         val normalized = payload.replace("\\s".toRegex(), "")
-            .replace('-', '+').replace('_', '/')
+            .replace('-', '+')
+            .replace('_', '/')
+
         val padded = normalized +
             "=".repeat((4 - normalized.length % 4) % 4)
+
         return Base64.decode(padded, Base64.DEFAULT)
             .toString(Charsets.UTF_8)
     }
 
     private fun JSONObject.value(key: String): String {
         if (!has(key) || isNull(key)) return ""
+
         return opt(key)?.toString().orEmpty()
     }
 }
