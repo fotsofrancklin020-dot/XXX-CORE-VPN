@@ -2,6 +2,7 @@
 package com.frankdev.xxxcorevpn
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
@@ -21,6 +22,7 @@ import android.net.Uri
 class MainActivity : Activity() {
 
     private val vpnRequestCode = 1001
+    private val configRequestCode = 1002
 
     private lateinit var subscriptionUrl: EditText
     private lateinit var udpServer: EditText
@@ -59,10 +61,9 @@ class MainActivity : Activity() {
             setBackgroundColor(
                 android.graphics.Color.rgb(18, 18, 24)
             )
-            visibility = View.VISIBLE
         }
 
-        // DASHBOARD LAYOUT
+        // DASHBOARD
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -82,19 +83,16 @@ class MainActivity : Activity() {
                 accentColor = android.graphics.Color.BLUE
                 textColor = android.graphics.Color.BLACK
             }
-
             1 -> {
                 backgroundColor = android.graphics.Color.rgb(18, 18, 24)
                 accentColor = android.graphics.Color.rgb(190, 120, 255)
                 textColor = android.graphics.Color.WHITE
             }
-
             2 -> {
                 backgroundColor = android.graphics.Color.BLACK
                 accentColor = android.graphics.Color.rgb(0, 190, 255)
                 textColor = android.graphics.Color.WHITE
             }
-
             else -> {
                 backgroundColor = android.graphics.Color.BLACK
                 accentColor = android.graphics.Color.rgb(230, 190, 70)
@@ -118,7 +116,7 @@ class MainActivity : Activity() {
             )
         )
 
-        // DRAWER BRAND
+        // BRAND
         val drawerBrand = TextView(this).apply {
             text = "XXX-CORE VPN\nFRANKDEV BUILD"
             textSize = 20f
@@ -129,7 +127,6 @@ class MainActivity : Activity() {
 
         drawerLayout.addView(drawerBrand)
 
-        // DRAWER BUTTON STYLE
         fun styleDrawerButton(button: Button, icon: Int) {
             button.textSize = 16f
             button.setCompoundDrawablesWithIntrinsicBounds(
@@ -152,7 +149,6 @@ class MainActivity : Activity() {
                 ).show()
             }
         }
-
         drawerLayout.addView(customServerButton)
 
         // THEME SETTINGS
@@ -166,7 +162,6 @@ class MainActivity : Activity() {
                 )
             }
         }
-
         drawerLayout.addView(themeSettingsButton)
 
         // APP SETTINGS
@@ -180,7 +175,6 @@ class MainActivity : Activity() {
                 )
             }
         }
-
         drawerLayout.addView(appSettingsButton)
 
         // OTHER DRAWER OPTIONS
@@ -190,11 +184,15 @@ class MainActivity : Activity() {
                 styleDrawerButton(this, icon)
 
                 setOnClickListener {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "$label sera configuré dans une prochaine étape",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    if (label == "Import Config") {
+                        openConfigPicker()
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "$label sera configuré dans une prochaine étape",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
 
@@ -219,7 +217,7 @@ class MainActivity : Activity() {
         addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)
         addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)
 
-        // SCROLLVIEW - DECLARED ONLY ONCE
+        // DRAWER SCROLL
         val drawerScrollView = ScrollView(this).apply {
             isFillViewport = true
             visibility = View.GONE
@@ -249,7 +247,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // DASHBOARD TITLE
+        // TITLE
         val title = TextView(this).apply {
             text = "XXX-CORE VPN"
             textSize = 28f
@@ -391,10 +389,7 @@ class MainActivity : Activity() {
                     .putString("udp_server", server)
                     .putString("udp_username", username)
                     .putString("udp_password", password)
-                    .putString(
-                        "udp_sni",
-                        udpSni.text.toString().trim()
-                    )
+                    .putString("udp_sni", udpSni.text.toString().trim())
                     .apply()
 
                 Toast.makeText(
@@ -405,7 +400,7 @@ class MainActivity : Activity() {
             }
         }
 
-        // ADD DASHBOARD ELEMENTS
+        // DASHBOARD ELEMENTS
         layout.addView(menuButton)
         layout.addView(title)
         layout.addView(status)
@@ -422,7 +417,6 @@ class MainActivity : Activity() {
 
         layout.setBackgroundColor(backgroundColor)
 
-        // ADD DASHBOARD TO ROOT
         rootLayout.addView(
             layout,
             FrameLayout.LayoutParams(
@@ -431,7 +425,6 @@ class MainActivity : Activity() {
             )
         )
 
-        // DRAWER POSITION
         val drawerParams = FrameLayout.LayoutParams(
             (280 * resources.displayMetrics.density).toInt(),
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -443,14 +436,131 @@ class MainActivity : Activity() {
         setContentView(rootLayout)
     }
 
-    // VPN AUTHORIZATION RESULT
+    // OPEN ANDROID FILE PICKER
+    private fun openConfigPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf(
+                    "application/json",
+                    "text/plain",
+                    "application/octet-stream"
+                )
+            )
+        }
+
+        try {
+            startActivityForResult(intent, configRequestCode)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Impossible d'ouvrir les fichiers.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // READ AND PARSE SELECTED CONFIG
+    private fun importSelectedConfig(uri: Uri) {
+        try {
+            val content = contentResolver.openInputStream(uri)
+                ?.bufferedReader(Charsets.UTF_8)
+                ?.use { it.readText() }
+                ?: throw IllegalArgumentException(
+                    "Impossible de lire ce fichier."
+                )
+
+            require(content.isNotBlank()) {
+                "Le fichier est vide."
+            }
+
+            val config = VmessLinkParser.parse(content)
+
+            val outbound = VmessLinkParser
+                .toSingBoxOutboundJson(config)
+                .toString(2)
+
+            getPreferences(MODE_PRIVATE).edit()
+                .putString("imported_vmess_outbound", outbound)
+                .putString("imported_vmess_name", config.name)
+                .apply()
+
+            showImportedConfig(config)
+
+        } catch (e: Exception) {
+            AlertDialog.Builder(this)
+                .setTitle("Échec de l'importation")
+                .setMessage(
+                    e.message ?: "Configuration invalide ou non prise en charge."
+                )
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    // DISPLAY IMPORTED CONFIG
+    private fun showImportedConfig(config: VmessConfig) {
+        val details = """
+            Nom : ${config.name.ifBlank { "Sans nom" }}
+
+            Protocole : VMess
+            Serveur : ${config.server}
+            Port : ${config.port}
+            UUID : ${config.uuid}
+            Alter ID : ${config.alterId}
+            Sécurité : ${config.security}
+
+            Transport : ${config.transport}
+            Host : ${config.host.ifBlank { "Non défini" }}
+            Path : ${config.path.ifBlank { "Non défini" }}
+
+            TLS : ${if (config.tlsEnabled) "Activé" else "Désactivé"}
+            SNI : ${config.serverName.ifBlank { "Non défini" }}
+            ALPN : ${config.alpn.joinToString().ifBlank { "Non défini" }}
+
+            Configuration analysée et enregistrée localement.
+        """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Configuration VMess importée")
+            .setMessage(details)
+            .setPositiveButton("OK", null)
+            .show()
+
+        Toast.makeText(
+            this,
+            "Importation VMess réussie",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // ACTIVITY RESULTS
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(
         requestCode: Int,
         resultCode: Int,
-        data: android.content.Intent?
+        data: Intent?
     ) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == configRequestCode) {
+            if (resultCode == RESULT_OK) {
+                val uri = data?.data
+
+                if (uri != null) {
+                    importSelectedConfig(uri)
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Aucun fichier sélectionné.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            return
+        }
 
         if (requestCode == vpnRequestCode) {
             if (resultCode == RESULT_OK) {
@@ -467,7 +577,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // VPN AUTHORIZATION GRANTED
+    // VPN AUTHORIZATION
     private fun showVpnAuthorizationGranted() {
         status.text = "Autorisation accordée — moteur à démarrer"
 
@@ -478,8 +588,3 @@ class MainActivity : Activity() {
         ).show()
     }
 }
-
-
-
-                
-
