@@ -55,7 +55,7 @@ jobs:
           gradle-version: 8.13
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug
+        run: gradle :app:assembleDebug :admin-signer:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
