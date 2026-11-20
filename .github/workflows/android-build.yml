@@ -57,8 +57,16 @@ jobs:
       - name: Build Debug APK
         run: gradle :app:assembleDebug :admin-signer:assembleDebug
 
-      - name: Upload APK
+      - name: Upload VPN APK
         uses: actions/upload-artifact@v4
         with:
           name: XXX-CORE-VPN-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload Admin Signer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XXX-CORE-Admin-Signer-debug
+          path: admin-signer/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
