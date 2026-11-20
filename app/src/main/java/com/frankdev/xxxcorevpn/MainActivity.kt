@@ -4,6 +4,7 @@ package com.frankdev.xxxcorevpn
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import org.json.JSONObject
 import android.net.VpnService
 import android.os.Bundle
 import android.widget.ScrollView
@@ -23,6 +24,9 @@ class MainActivity : Activity() {
 
     private val vpnRequestCode = 1001
     private val configRequestCode = 1002
+    private val exportRequestCode = 1003
+
+    private var pendingExportContent: String? = null
 
     private lateinit var subscriptionUrl: EditText
     private lateinit var udpServer: EditText
@@ -184,10 +188,10 @@ class MainActivity : Activity() {
                 styleDrawerButton(this, icon)
 
                 setOnClickListener {
-                    if (label == "Import Config") {
-                        openConfigPicker()
-                    } else {
-                        Toast.makeText(
+                    when (label) {
+                        "Import Config" -> openConfigPicker()
+                        "Export Config" -> exportConfig()
+                        else -> Toast.makeText(
                             this@MainActivity,
                             "$label sera configuré dans une prochaine étape",
                             Toast.LENGTH_SHORT
@@ -436,6 +440,63 @@ class MainActivity : Activity() {
         setContentView(rootLayout)
     }
 
+    // EXPORT CONFIG
+    private fun exportConfig() {
+        try {
+            val prefs = getPreferences(MODE_PRIVATE)
+
+            val payload = JSONObject()
+                .put(
+                    "subscription_url",
+                    prefs.getString("subscription_url", "") ?: ""
+                )
+                .put(
+                    "udp_server",
+                    prefs.getString("udp_server", "") ?: ""
+                )
+                .put(
+                    "udp_username",
+                    prefs.getString("udp_username", "") ?: ""
+                )
+                .put(
+                    "udp_password",
+                    prefs.getString("udp_password", "") ?: ""
+                )
+                .put(
+                    "udp_sni",
+                    prefs.getString("udp_sni", "") ?: ""
+                )
+                .put(
+                    "imported_vmess_outbound",
+                    prefs.getString("imported_vmess_outbound", "") ?: ""
+                )
+                .put(
+                    "imported_vmess_name",
+                    prefs.getString("imported_vmess_name", "") ?: ""
+                )
+
+            pendingExportContent = XxxCoreFile.create(payload)
+
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/json"
+                putExtra(
+                    Intent.EXTRA_TITLE,
+                    "XXXCORE-config.xxxcore"
+                )
+            }
+
+            startActivityForResult(intent, exportRequestCode)
+
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                e.message ?: "Exportation impossible.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     // OPEN ANDROID FILE PICKER
     private fun openConfigPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -544,6 +605,39 @@ class MainActivity : Activity() {
         data: Intent?
     ) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == exportRequestCode) {
+            if (resultCode == RESULT_OK) {
+                val uri = data?.data
+                val content = pendingExportContent
+
+                if (uri != null && content != null) {
+                    try {
+                        contentResolver.openOutputStream(uri)?.use { output ->
+                            output.write(content.toByteArray(Charsets.UTF_8))
+                        } ?: throw IllegalArgumentException(
+                            "Impossible d'enregistrer le fichier."
+                        )
+
+                        Toast.makeText(
+                            this,
+                            "Fichier .xxxcore exporté avec succès.",
+                            Toast.LENGTH_LONG
+                        ).show()
+
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this,
+                            e.message ?: "Échec de l'exportation.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+            pendingExportContent = null
+            return
+        }
 
         if (requestCode == configRequestCode) {
             if (resultCode == RESULT_OK) {
