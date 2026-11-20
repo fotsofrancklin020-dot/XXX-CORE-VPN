@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "XXX-CORE-VPN"
-include(":app")
+include(":app", ":admin-signer")
