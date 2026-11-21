@@ -189,7 +189,7 @@ class MainActivity : Activity() {
 
                 setOnClickListener {
                     when (label) {
-                        "Import Config" -> openConfigPicker()
+                        "Import Config" -> showImportOptionsDialog()
                         "Export Config" -> {
                             startActivity(
                                 Intent(
