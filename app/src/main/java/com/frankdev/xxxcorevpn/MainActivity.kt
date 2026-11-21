@@ -607,43 +607,166 @@ private fun showLinkImportDialog() {
         }
     }
 
-    // READ AND PARSE SELECTED CONFIG
-    private fun importSelectedConfig(uri: Uri) {
-        try {
-            val content = contentResolver.openInputStream(uri)
-                ?.bufferedReader(Charsets.UTF_8)
-                ?.use { it.readText() }
-                ?: throw IllegalArgumentException(
-                    "Impossible de lire ce fichier."
-                )
+// READ AND IMPORT XXXCORE FILE
+private fun importSelectedConfig(uri: Uri) {
+    try {
+        val content = contentResolver.openInputStream(uri)
+            ?.bufferedReader(Charsets.UTF_8)
+            ?.use { it.readText() }
+            ?: throw IllegalArgumentException(
+                "Impossible de lire ce fichier."
+            )
 
-            require(content.isNotBlank()) {
-                "Le fichier est vide."
-            }
-
-            val config = VmessLinkParser.parse(content)
-
-            val outbound = VmessLinkParser
-                .toSingBoxOutboundJson(config)
-                .toString(2)
-
-            getPreferences(MODE_PRIVATE).edit()
-                .putString("imported_vmess_outbound", outbound)
-                .putString("imported_vmess_name", config.name)
-                .apply()
-
-            showImportedConfig(config)
-
-        } catch (e: Exception) {
-            AlertDialog.Builder(this)
-                .setTitle("Échec de l'importation")
-                .setMessage(
-                    e.message ?: "Configuration invalide ou non prise en charge."
-                )
-                .setPositiveButton("OK", null)
-                .show()
+        require(content.isNotBlank()) {
+            "Le fichier est vide."
         }
+
+        // Vérification obligatoire avant toute lecture du contenu.
+        XxxCoreSignatureVerifier.verify(content)
+
+        val envelope = JSONObject(content)
+
+        if (envelope.optBoolean("encrypted", false)) {
+            showXxxCorePasswordDialog(content)
+        } else {
+            completeXxxCoreImport(content, null)
+        }
+
+    } catch (e: Exception) {
+        AlertDialog.Builder(this)
+            .setTitle("Échec de l'importation")
+            .setMessage(
+                e.message ?: "Fichier XXXCORE invalide."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
+}
+
+// PASSWORD DIALOG
+private fun showXxxCorePasswordDialog(content: String) {
+    val passwordInput = EditText(this).apply {
+        hint = "Mot de passe du fichier"
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_VARIATION_PASSWORD
+        setSingleLine(true)
+    }
+
+    val dialog = AlertDialog.Builder(this)
+        .setTitle("Fichier XXXCORE protégé")
+        .setMessage("Entre le mot de passe pour déchiffrer ce fichier.")
+        .setView(passwordInput)
+        .setPositiveButton("Déverrouiller", null)
+        .setNegativeButton("Annuler", null)
+        .create()
+
+    dialog.setOnShowListener {
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            .setOnClickListener {
+                val password = passwordInput.text.toString()
+
+                if (password.isBlank()) {
+                    passwordInput.error = "Mot de passe obligatoire"
+                    return@setOnClickListener
+                }
+
+                try {
+                    completeXxxCoreImport(content, password)
+                    dialog.dismiss()
+                } catch (e: Exception) {
+                    passwordInput.error =
+                        e.message ?: "Mot de passe incorrect"
+                }
+            }
+    }
+
+    dialog.show()
+}
+
+// RESTORE VERIFIED XXXCORE CONFIG
+private fun completeXxxCoreImport(
+    content: String,
+    password: String?
+) {
+    try {
+        // La signature et l'expiration sont revérifiées.
+        XxxCoreSignatureVerifier.verify(content)
+
+        val envelope = JSONObject(content)
+        val payload = XxxCoreFile.read(content, password)
+        val expiry = envelope.getLong("expiresAt")
+
+        val prefs = getPreferences(MODE_PRIVATE)
+        val editor = prefs.edit()
+
+        editor.putString(
+            "subscription_url",
+            payload.optString("subscription_url", "")
+        )
+
+        editor.putString(
+            "imported_vmess_outbound",
+            payload.optString("imported_vmess_outbound", "")
+        )
+
+        editor.putString(
+            "imported_vmess_name",
+            payload.optString("imported_vmess_name", "")
+        )
+
+        editor.putString(
+            "expiry_date",
+            payload.optString("expiry_date", "")
+        )
+
+        editor.putLong("xxxcore_expires_at", expiry)
+
+        val protextras = payload.optJSONObject("protextras")
+        if (protextras != null) {
+            editor.putString("protextras", protextras.toString())
+        }
+
+        if (payload.has("udp_server")) {
+            editor.putString("udp_server", payload.optString("udp_server"))
+            editor.putString("udp_username", payload.optString("udp_username"))
+            editor.putString("udp_password", payload.optString("udp_password"))
+            editor.putString("udp_sni", payload.optString("udp_sni"))
+        }
+
+        editor.apply()
+
+        subscriptionUrl.setText(
+            payload.optString("subscription_url", "")
+        )
+
+        if (payload.has("udp_server")) {
+            udpServer.setText(payload.optString("udp_server"))
+            udpUsername.setText(payload.optString("udp_username"))
+            udpPassword.setText(payload.optString("udp_password"))
+            udpSni.setText(payload.optString("udp_sni"))
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("XXXCORE importé avec succès")
+            .setMessage(
+                "Configuration vérifiée et enregistrée.\n\n" +
+                    "Nom : ${payload.optString("imported_vmess_name", "Sans nom")}\n" +
+                    "Expiration : ${payload.optString("expiry_date", "Non précisée")}\n\n" +
+                    "Signature Admin Signer valide."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+
+    } catch (e: Exception) {
+        AlertDialog.Builder(this)
+            .setTitle("Importation refusée")
+            .setMessage(
+                e.message ?: "Impossible de déchiffrer ce fichier."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+}
 
     // DISPLAY IMPORTED CONFIG
     private fun showImportedConfig(config: VmessConfig) {
