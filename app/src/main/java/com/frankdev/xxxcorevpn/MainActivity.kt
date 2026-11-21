@@ -4,21 +4,21 @@ package com.frankdev.xxxcorevpn
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import org.json.JSONObject
+import android.net.Uri
 import android.net.VpnService
 import android.os.Bundle
-import android.widget.ScrollView
 import android.text.InputType
-import android.widget.ImageView
 import android.view.Gravity
 import android.view.View
-import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import android.net.Uri
+import org.json.JSONObject
 
 class MainActivity : Activity() {
 
@@ -87,16 +87,19 @@ class MainActivity : Activity() {
                 accentColor = android.graphics.Color.BLUE
                 textColor = android.graphics.Color.BLACK
             }
+
             1 -> {
                 backgroundColor = android.graphics.Color.rgb(18, 18, 24)
                 accentColor = android.graphics.Color.rgb(190, 120, 255)
                 textColor = android.graphics.Color.WHITE
             }
+
             2 -> {
                 backgroundColor = android.graphics.Color.BLACK
                 accentColor = android.graphics.Color.rgb(0, 190, 255)
                 textColor = android.graphics.Color.WHITE
             }
+
             else -> {
                 backgroundColor = android.graphics.Color.BLACK
                 accentColor = android.graphics.Color.rgb(230, 190, 70)
@@ -153,6 +156,7 @@ class MainActivity : Activity() {
                 ).show()
             }
         }
+
         drawerLayout.addView(customServerButton)
 
         // THEME SETTINGS
@@ -162,10 +166,14 @@ class MainActivity : Activity() {
 
             setOnClickListener {
                 startActivity(
-                    Intent(this@MainActivity, SettingsActivity::class.java)
+                    Intent(
+                        this@MainActivity,
+                        SettingsActivity::class.java
+                    )
                 )
             }
         }
+
         drawerLayout.addView(themeSettingsButton)
 
         // APP SETTINGS
@@ -175,10 +183,14 @@ class MainActivity : Activity() {
 
             setOnClickListener {
                 startActivity(
-                    Intent(this@MainActivity, SettingsActivity::class.java)
+                    Intent(
+                        this@MainActivity,
+                        SettingsActivity::class.java
+                    )
                 )
             }
         }
+
         drawerLayout.addView(appSettingsButton)
 
         // OTHER DRAWER OPTIONS
@@ -190,6 +202,7 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     when (label) {
                         "Import Config" -> showImportOptionsDialog()
+
                         "Export Config" -> {
                             startActivity(
                                 Intent(
@@ -198,6 +211,7 @@ class MainActivity : Activity() {
                                 )
                             )
                         }
+
                         else -> Toast.makeText(
                             this@MainActivity,
                             "$label sera configuré dans une prochaine étape",
@@ -297,7 +311,10 @@ class MainActivity : Activity() {
                 shouldRefreshTheme = true
 
                 startActivity(
-                    Intent(this@MainActivity, SettingsActivity::class.java)
+                    Intent(
+                        this@MainActivity,
+                        SettingsActivity::class.java
+                    )
                 )
             }
         }
@@ -446,141 +463,6 @@ class MainActivity : Activity() {
 
         setContentView(rootLayout)
     }
-// IMPORT CONFIG OPTIONS
-private fun showImportOptionsDialog() {
-    val options = arrayOf(
-        "VMess / VLESS Link",
-        "XXXCORE File"
-    )
-
-    AlertDialog.Builder(this)
-        .setTitle("IMPORT CONFIG")
-        .setItems(options) { _, which ->
-            when (which) {
-                0 -> showLinkImportDialog()
-                1 -> openConfigPicker()
-            }
-        }
-        .setNegativeButton("Annuler", null)
-        .show()
-}
-
-// IMPORT VMESS / VLESS LINK
-private fun showLinkImportDialog() {
-    val input = EditText(this).apply {
-        hint = "Colle ton lien vmess:// ou vless://"
-        inputType = InputType.TYPE_CLASS_TEXT or
-            InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        minLines = 3
-        setPadding(32, 24, 32, 24)
-    }
-
-    val dialog = AlertDialog.Builder(this)
-        .setTitle("IMPORT VMess / VLESS")
-        .setView(input)
-        .setPositiveButton("Importer", null)
-        .setNegativeButton("Annuler", null)
-        .create()
-
-    dialog.setOnShowListener {
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            .setOnClickListener {
-                val link = input.text.toString().trim()
-
-                try {
-                    require(link.isNotBlank()) {
-                        "Colle d'abord un lien VMess ou VLESS."
-                    }
-
-                    val outbound: JSONObject
-                    val configName: String
-
-                    when {
-                        link.startsWith("vmess://", true) -> {
-                            val config = VmessLinkParser.parse(link)
-
-                            outbound = VmessLinkParser
-                                .toSingBoxOutboundJson(config)
-
-                            configName = config.name.ifBlank {
-                                "${config.server}:${config.port}"
-                            }
-
-                            getPreferences(MODE_PRIVATE).edit()
-                                .putString(
-                                    "imported_vmess_outbound",
-                                    outbound.toString(2)
-                                )
-                                .putString(
-                                    "imported_vmess_name",
-                                    configName
-                                )
-                                .apply()
-
-                            dialog.dismiss()
-                            showImportedConfig(config)
-                        }
-
-                        link.startsWith("vless://", true) -> {
-                            outbound = VlessLinkParser.parse(link)
-
-                            configName = VlessLinkParser.getName(link)
-                                .ifBlank {
-                                    "${outbound.getString("server")}:" +
-                                        outbound.getInt("server_port")
-                                }
-
-                            getPreferences(MODE_PRIVATE).edit()
-                                .putString(
-                                    "imported_vmess_outbound",
-                                    outbound.toString(2)
-                                )
-                                .putString(
-                                    "imported_vmess_name",
-                                    configName
-                                )
-                                .apply()
-
-                            dialog.dismiss()
-
-                            AlertDialog.Builder(this)
-                                .setTitle("Configuration VLESS importée")
-                                .setMessage(
-                                    "Nom : $configName\n\n" +
-                                        "Protocole : VLESS\n" +
-                                        "Serveur : ${outbound.getString("server")}\n" +
-                                        "Port : ${outbound.getInt("server_port")}\n\n" +
-                                        "Configuration enregistrée localement."
-                                )
-                                .setPositiveButton("OK", null)
-                                .show()
-
-                            Toast.makeText(
-                                this,
-                                "Importation VLESS réussie",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-
-                        else -> {
-                            throw IllegalArgumentException(
-                                "Lien non reconnu. Utilise vmess:// ou vless://."
-                            )
-                        }
-                    }
-
-                } catch (e: Exception) {
-                    Toast.makeText(
-                        this,
-                        e.message ?: "Échec de l'importation.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-    }
-
-    dialog.show()
-}
 
     // IMPORT CONFIG OPTIONS
     private fun showImportOptionsDialog() {
@@ -604,91 +486,115 @@ private fun showLinkImportDialog() {
     // IMPORT VMESS / VLESS LINK
     private fun showLinkImportDialog() {
         val linkInput = EditText(this).apply {
-            hint = "Colle ton lien VMess ou VLESS ici"
+            hint = "Colle ton lien vmess:// ou vless://"
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE
             minLines = 4
             setPadding(24, 16, 24, 16)
         }
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("IMPORT VMess / VLESS")
             .setView(linkInput)
-            .setPositiveButton("Importer") { _, _ ->
-                val link = linkInput.text.toString().trim()
+            .setPositiveButton("Importer", null)
+            .setNegativeButton("Annuler", null)
+            .create()
 
-                try {
-                    require(link.isNotBlank()) {
-                        "Colle un lien avant de continuer."
-                    }
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener {
+                    val link = linkInput.text.toString().trim()
 
-                    val outbound: JSONObject
-                    val configName: String
-                    val protocol: String
-
-                    when {
-                        link.startsWith("vmess://", true) -> {
-                            val config = VmessLinkParser.parse(link)
-
-                            outbound = VmessLinkParser
-                                .toSingBoxOutboundJson(config)
-
-                            configName = config.name
-                            protocol = "VMess"
+                    try {
+                        require(link.isNotBlank()) {
+                            "Colle un lien avant de continuer."
                         }
 
-                        link.startsWith("vless://", true) -> {
-                            outbound = VlessLinkParser.parse(link)
+                        when {
+                            link.startsWith("vmess://", true) -> {
+                                val config = VmessLinkParser.parse(link)
 
-                            configName = VlessLinkParser
-                                .getName(link)
-                                .ifBlank {
-                                    outbound.optString("server") +
-                                        ":" +
-                                        outbound.optString("server_port")
+                                val outbound =
+                                    VmessLinkParser.toSingBoxOutboundJson(config)
+
+                                val configName = config.name.ifBlank {
+                                    "${config.server}:${config.port}"
                                 }
 
-                            protocol = "VLESS"
+                                getPreferences(MODE_PRIVATE).edit()
+                                    .putString(
+                                        "imported_vmess_outbound",
+                                        outbound.toString(2)
+                                    )
+                                    .putString(
+                                        "imported_vmess_name",
+                                        configName
+                                    )
+                                    .apply()
+
+                                dialog.dismiss()
+                                showImportedConfig(config)
+                            }
+
+                            link.startsWith("vless://", true) -> {
+                                val outbound = VlessLinkParser.parse(link)
+
+                                val configName =
+                                    VlessLinkParser.getName(link).ifBlank {
+                                        "${outbound.getString("server")}:" +
+                                            outbound.getInt("server_port")
+                                    }
+
+                                getPreferences(MODE_PRIVATE).edit()
+                                    .putString(
+                                        "imported_vmess_outbound",
+                                        outbound.toString(2)
+                                    )
+                                    .putString(
+                                        "imported_vmess_name",
+                                        configName
+                                    )
+                                    .apply()
+
+                                dialog.dismiss()
+
+                                AlertDialog.Builder(this)
+                                    .setTitle("Configuration VLESS importée")
+                                    .setMessage(
+                                        "Nom : $configName\n\n" +
+                                            "Protocole : VLESS\n" +
+                                            "Serveur : ${outbound.getString("server")}\n" +
+                                            "Port : ${outbound.getInt("server_port")}\n\n" +
+                                            "Configuration enregistrée localement."
+                                    )
+                                    .setPositiveButton("OK", null)
+                                    .show()
+
+                                Toast.makeText(
+                                    this,
+                                    "Importation VLESS réussie",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+
+                            else -> {
+                                throw IllegalArgumentException(
+                                    "Lien non reconnu. Utilise vmess:// ou vless://."
+                                )
+                            }
                         }
 
-                        else -> throw IllegalArgumentException(
-                            "Seuls les liens VMess et VLESS sont acceptés."
-                        )
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this,
+                            e.message ?: "Échec de l'importation.",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
-
-                    getPreferences(MODE_PRIVATE).edit()
-                        .putString(
-                            "imported_vmess_outbound",
-                            outbound.toString(2)
-                        )
-                        .putString(
-                            "imported_vmess_name",
-                            configName
-                        )
-                        .apply()
-
-                    AlertDialog.Builder(this)
-                        .setTitle("Importation réussie")
-                        .setMessage(
-                            "Protocole : $protocol\n" +
-                                "Nom : $configName\n\n" +
-                                "Lien analysé et enregistré."
-                        )
-                        .setPositiveButton("OK", null)
-                        .show()
-
-                } catch (e: Exception) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Échec de l'importation")
-                        .setMessage(
-                            e.message ?: "Lien invalide."
-                        )
-                        .setPositiveButton("OK", null)
-                        .show()
                 }
-            }
-            .setNegativeButton("Annuler", null)
-            .show()
+        }
+
+        dialog.show()
     }
 
     // OPEN ANDROID FILE PICKER
@@ -717,89 +623,86 @@ private fun showLinkImportDialog() {
         }
     }
 
-// READ AND IMPORT XXXCORE FILE
-private fun importSelectedConfig(uri: Uri) {
-    try {
-        val content = contentResolver.openInputStream(uri)
-            ?.bufferedReader(Charsets.UTF_8)
-            ?.use { it.readText() }
-            ?: throw IllegalArgumentException(
-                "Impossible de lire ce fichier."
-            )
+    // READ AND IMPORT XXXCORE FILE
+    private fun importSelectedConfig(uri: Uri) {
+        try {
+            val content = contentResolver.openInputStream(uri)
+                ?.bufferedReader(Charsets.UTF_8)
+                ?.use { it.readText() }
+                ?: throw IllegalArgumentException(
+                    "Impossible de lire ce fichier."
+                )
 
-        require(content.isNotBlank()) {
-            "Le fichier est vide."
-        }
+            require(content.isNotBlank()) {
+                "Le fichier est vide."
+            }
 
-        // Vérification obligatoire avant toute lecture du contenu.
-        XxxCoreSignatureVerifier.verify(content)
+            // Vérification obligatoire de la signature et de l'expiration.
+            XxxCoreSignatureVerifier.verify(content)
 
-        val envelope = JSONObject(content)
+            val envelope = JSONObject(content)
 
-        if (envelope.optBoolean("encrypted", false)) {
-            showXxxCorePasswordDialog(content)
-        } else {
-            completeXxxCoreImport(content, null)
-        }
+            if (envelope.optBoolean("encrypted", false)) {
+                showXxxCorePasswordDialog(content)
+            } else {
+                completeXxxCoreImport(content, null)
+            }
 
-    } catch (e: Exception) {
-        AlertDialog.Builder(this)
-            .setTitle("Échec de l'importation")
-            .setMessage(
+        } catch (e: Exception) {
+            showImportError(
                 e.message ?: "Fichier XXXCORE invalide."
             )
-            .setPositiveButton("OK", null)
-            .show()
-    }
-}
-
-// PASSWORD DIALOG
-private fun showXxxCorePasswordDialog(content: String) {
-    val passwordInput = EditText(this).apply {
-        hint = "Mot de passe du fichier"
-        inputType = InputType.TYPE_CLASS_TEXT or
-            InputType.TYPE_TEXT_VARIATION_PASSWORD
-        setSingleLine(true)
+        }
     }
 
-    val dialog = AlertDialog.Builder(this)
-        .setTitle("Fichier XXXCORE protégé")
-        .setMessage("Entre le mot de passe pour déchiffrer ce fichier.")
-        .setView(passwordInput)
-        .setPositiveButton("Déverrouiller", null)
-        .setNegativeButton("Annuler", null)
-        .create()
+    // XXXCORE PASSWORD DIALOG
+    private fun showXxxCorePasswordDialog(content: String) {
+        val passwordInput = EditText(this).apply {
+            hint = "Mot de passe du fichier"
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+        }
 
-    dialog.setOnShowListener {
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            .setOnClickListener {
-                val password = passwordInput.text.toString()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Fichier XXXCORE protégé")
+            .setMessage(
+                "Entre le mot de passe pour déchiffrer ce fichier."
+            )
+            .setView(passwordInput)
+            .setPositiveButton("Déverrouiller", null)
+            .setNegativeButton("Annuler", null)
+            .create()
 
-                if (password.isBlank()) {
-                    passwordInput.error = "Mot de passe obligatoire"
-                    return@setOnClickListener
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener {
+                    val password = passwordInput.text.toString()
+
+                    if (password.isBlank()) {
+                        passwordInput.error = "Mot de passe obligatoire"
+                        return@setOnClickListener
+                    }
+
+                    try {
+                        completeXxxCoreImport(content, password)
+                        dialog.dismiss()
+                    } catch (e: Exception) {
+                        passwordInput.error =
+                            e.message ?: "Mot de passe incorrect"
+                    }
                 }
+        }
 
-                try {
-                    completeXxxCoreImport(content, password)
-                    dialog.dismiss()
-                } catch (e: Exception) {
-                    passwordInput.error =
-                        e.message ?: "Mot de passe incorrect"
-                }
-            }
+        dialog.show()
     }
 
-    dialog.show()
-}
-
-// RESTORE VERIFIED XXXCORE CONFIG
-private fun completeXxxCoreImport(
-    content: String,
-    password: String?
-) {
-    try {
-        // La signature et l'expiration sont revérifiées.
+    // RESTORE VERIFIED XXXCORE CONFIG
+    private fun completeXxxCoreImport(
+        content: String,
+        password: String?
+    ) {
+        // Revérifier la signature et l'expiration avant restauration.
         XxxCoreSignatureVerifier.verify(content)
 
         val envelope = JSONObject(content)
@@ -837,12 +740,25 @@ private fun completeXxxCoreImport(
         }
 
         if (payload.has("udp_server")) {
-            editor.putString("udp_server", payload.optString("udp_server"))
-            editor.putString("udp_username", payload.optString("udp_username"))
-            editor.putString("udp_password", payload.optString("udp_password"))
-            editor.putString("udp_sni", payload.optString("udp_sni"))
+            editor.putString(
+                "udp_server",
+                payload.optString("udp_server")
+            )
+            editor.putString(
+                "udp_username",
+                payload.optString("udp_username")
+            )
+            editor.putString(
+                "udp_password",
+                payload.optString("udp_password")
+            )
+            editor.putString(
+                "udp_sni",
+                payload.optString("udp_sni")
+            )
         }
 
+        // Enregistrer les données seulement après validation complète.
         editor.apply()
 
         subscriptionUrl.setText(
@@ -866,19 +782,18 @@ private fun completeXxxCoreImport(
             )
             .setPositiveButton("OK", null)
             .show()
+    }
 
-    } catch (e: Exception) {
+    // DISPLAY IMPORT ERROR
+    private fun showImportError(message: String) {
         AlertDialog.Builder(this)
-            .setTitle("Importation refusée")
-            .setMessage(
-                e.message ?: "Impossible de déchiffrer ce fichier."
-            )
+            .setTitle("Échec de l'importation")
+            .setMessage(message)
             .setPositiveButton("OK", null)
             .show()
     }
-}
 
-    // DISPLAY IMPORTED CONFIG
+    // DISPLAY IMPORTED VMESS CONFIG
     private fun showImportedConfig(config: VmessConfig) {
         val details = """
             Nom : ${config.name.ifBlank { "Sans nom" }}
