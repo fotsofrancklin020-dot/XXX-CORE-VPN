@@ -23,6 +23,7 @@ import java.util.Calendar
 import java.util.Locale
 
 class ExportConfigActivity : Activity() {
+
     private val gold = Color.rgb(255, 190, 35)
     private val cyan = Color.rgb(0, 190, 255)
     private val black = Color.rgb(8, 8, 12)
@@ -43,6 +44,7 @@ class ExportConfigActivity : Activity() {
 
     private lateinit var passwordInput: EditText
     private lateinit var expiryButton: Button
+
     private var expiryDate = ""
     private var pendingContent: String? = null
 
@@ -103,7 +105,9 @@ class ExportConfigActivity : Activity() {
                 setTextColor(white)
                 isChecked = initial
                 setPadding(dp(8), dp(10), dp(8), dp(10))
-                buttonTintList = android.content.res.ColorStateList.valueOf(cyan)
+                buttonTintList =
+                    android.content.res.ColorStateList.valueOf(cyan)
+
                 setOnCheckedChangeListener { _, checked ->
                     options[label] = checked
 
@@ -118,6 +122,7 @@ class ExportConfigActivity : Activity() {
                     }
                 }
             }
+
             optionsPanel.addView(toggle)
 
             val separator = View(this).apply {
@@ -148,7 +153,9 @@ class ExportConfigActivity : Activity() {
             setTextColor(black)
             setBackgroundColor(gold)
             visibility = View.GONE
-            setOnClickListener { showExpiryPicker() }
+            setOnClickListener {
+                showExpiryPicker()
+            }
         }
         page.addView(expiryButton, matchWidth())
 
@@ -159,8 +166,11 @@ class ExportConfigActivity : Activity() {
             setTextColor(gold)
             setBackgroundColor(Color.rgb(35, 25, 5))
             setPadding(dp(8), dp(18), dp(8), dp(18))
-            setOnClickListener { prepareExport() }
+            setOnClickListener {
+                prepareExport()
+            }
         }
+
         val generateParams = matchWidth()
         generateParams.topMargin = dp(18)
         page.addView(generate, generateParams)
@@ -182,23 +192,40 @@ class ExportConfigActivity : Activity() {
             text = "EXPORT TO CLOUD"
             setTextColor(cyan)
             setBackgroundColor(dark)
-            setOnClickListener { prepareExport() }
+            setOnClickListener {
+                prepareExport()
+            }
         }
 
         val shareButton = Button(this).apply {
             text = "PARTAGER"
             setTextColor(cyan)
             setBackgroundColor(dark)
-            setOnClickListener { shareExportedFile() }
+            setOnClickListener {
+                shareExportedFile()
+            }
         }
 
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(qrButton, LinearLayout.LayoutParams(0, dp(54), 1f))
-            addView(cloudButton, LinearLayout.LayoutParams(0, dp(54), 1f))
-            addView(shareButton, LinearLayout.LayoutParams(0, dp(54), 1f))
+
+            addView(
+                qrButton,
+                LinearLayout.LayoutParams(0, dp(54), 1f)
+            )
+
+            addView(
+                cloudButton,
+                LinearLayout.LayoutParams(0, dp(54), 1f)
+            )
+
+            addView(
+                shareButton,
+                LinearLayout.LayoutParams(0, dp(54), 1f)
+            )
         }
+
         val actionsParams = matchWidth()
         actionsParams.topMargin = dp(12)
         page.addView(actions, actionsParams)
@@ -223,6 +250,7 @@ class ExportConfigActivity : Activity() {
             this,
             { _, year, month, day ->
                 calendar.set(year, month, day)
+
                 expiryDate = SimpleDateFormat(
                     "dd/MM/yyyy",
                     Locale.getDefault()
@@ -238,14 +266,18 @@ class ExportConfigActivity : Activity() {
 
     private fun prepareExport() {
         try {
-            if (options["Password"] == true &&
+            if (
+                options["Password"] == true &&
                 passwordInput.text.isNullOrBlank()
             ) {
                 passwordInput.error = "Entre un mot de passe"
                 return
             }
 
-            if (options["Expire Date"] == true && expiryDate.isBlank()) {
+            if (
+                options["Expire Date"] == true &&
+                expiryDate.isBlank()
+            ) {
                 Toast.makeText(
                     this,
                     "Choisis une date d'expiration.",
@@ -254,7 +286,11 @@ class ExportConfigActivity : Activity() {
                 return
             }
 
-            val prefs = getSharedPreferences("MainActivity", MODE_PRIVATE)
+            // Lire les préférences de MainActivity
+            val prefs = getSharedPreferences(
+                "MainActivity_preferences",
+                MODE_PRIVATE
+            )
 
             val payload = JSONObject()
                 .put(
@@ -269,10 +305,17 @@ class ExportConfigActivity : Activity() {
                     "imported_vmess_name",
                     prefs.getString("imported_vmess_name", "") ?: ""
                 )
-                .put("protextras", JSONObject(options))
+                .put(
+                    "protextras",
+                    JSONObject(options)
+                )
                 .put(
                     "expiry_date",
-                    if (options["Expire Date"] == true) expiryDate else ""
+                    if (options["Expire Date"] == true) {
+                        expiryDate
+                    } else {
+                        ""
+                    }
                 )
 
             if (options["Export Custom Server"] == true) {
@@ -300,7 +343,10 @@ class ExportConfigActivity : Activity() {
                 null
             }
 
-            pendingContent = XxxCoreFile.create(payload, password)
+            pendingContent = XxxCoreFile.create(
+                payload,
+                password
+            )
 
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
@@ -311,7 +357,10 @@ class ExportConfigActivity : Activity() {
                 )
             }
 
-            startActivityForResult(intent, exportRequestCode)
+            startActivityForResult(
+                intent,
+                exportRequestCode
+            )
 
         } catch (e: Exception) {
             Toast.makeText(
@@ -339,7 +388,9 @@ class ExportConfigActivity : Activity() {
             putExtra(Intent.EXTRA_TEXT, content)
         }
 
-        startActivity(Intent.createChooser(send, "Partager XXXCORE"))
+        startActivity(
+            Intent.createChooser(send, "Partager XXXCORE")
+        )
     }
 
     @Deprecated("Deprecated in Android API")
@@ -348,9 +399,15 @@ class ExportConfigActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
-        super.onActivityResult(requestCode, resultCode, data)
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
 
-        if (requestCode != exportRequestCode) return
+        if (requestCode != exportRequestCode) {
+            return
+        }
 
         if (resultCode == RESULT_OK) {
             val uri: Uri? = data?.data
@@ -359,7 +416,9 @@ class ExportConfigActivity : Activity() {
             if (uri != null && content != null) {
                 try {
                     contentResolver.openOutputStream(uri)?.use {
-                        it.write(content.toByteArray(Charsets.UTF_8))
+                        it.write(
+                            content.toByteArray(Charsets.UTF_8)
+                        )
                     } ?: throw IllegalStateException(
                         "Impossible d'enregistrer le fichier."
                     )
@@ -383,12 +442,16 @@ class ExportConfigActivity : Activity() {
         pendingContent = null
     }
 
-    private fun matchWidth(): LinearLayout.LayoutParams =
-        LinearLayout.LayoutParams(
+    private fun matchWidth(): LinearLayout.LayoutParams {
+        return LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
+    }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int {
+        return (
+            value * resources.displayMetrics.density
+        ).toInt()
+    }
 }
