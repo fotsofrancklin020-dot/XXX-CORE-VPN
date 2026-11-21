@@ -581,6 +581,116 @@ private fun showLinkImportDialog() {
 
     dialog.show()
 }
+
+    // IMPORT CONFIG OPTIONS
+    private fun showImportOptionsDialog() {
+        val options = arrayOf(
+            "VMess / VLESS Link",
+            "XXXCORE File"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("IMPORT CONFIG")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showLinkImportDialog()
+                    1 -> openConfigPicker()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    // IMPORT VMESS / VLESS LINK
+    private fun showLinkImportDialog() {
+        val linkInput = EditText(this).apply {
+            hint = "Colle ton lien VMess ou VLESS ici"
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 4
+            setPadding(24, 16, 24, 16)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("IMPORT VMess / VLESS")
+            .setView(linkInput)
+            .setPositiveButton("Importer") { _, _ ->
+                val link = linkInput.text.toString().trim()
+
+                try {
+                    require(link.isNotBlank()) {
+                        "Colle un lien avant de continuer."
+                    }
+
+                    val outbound: JSONObject
+                    val configName: String
+                    val protocol: String
+
+                    when {
+                        link.startsWith("vmess://", true) -> {
+                            val config = VmessLinkParser.parse(link)
+
+                            outbound = VmessLinkParser
+                                .toSingBoxOutboundJson(config)
+
+                            configName = config.name
+                            protocol = "VMess"
+                        }
+
+                        link.startsWith("vless://", true) -> {
+                            outbound = VlessLinkParser.parse(link)
+
+                            configName = VlessLinkParser
+                                .getName(link)
+                                .ifBlank {
+                                    outbound.optString("server") +
+                                        ":" +
+                                        outbound.optString("server_port")
+                                }
+
+                            protocol = "VLESS"
+                        }
+
+                        else -> throw IllegalArgumentException(
+                            "Seuls les liens VMess et VLESS sont acceptés."
+                        )
+                    }
+
+                    getPreferences(MODE_PRIVATE).edit()
+                        .putString(
+                            "imported_vmess_outbound",
+                            outbound.toString(2)
+                        )
+                        .putString(
+                            "imported_vmess_name",
+                            configName
+                        )
+                        .apply()
+
+                    AlertDialog.Builder(this)
+                        .setTitle("Importation réussie")
+                        .setMessage(
+                            "Protocole : $protocol\n" +
+                                "Nom : $configName\n\n" +
+                                "Lien analysé et enregistré."
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+
+                } catch (e: Exception) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Échec de l'importation")
+                        .setMessage(
+                            e.message ?: "Lien invalide."
+                        )
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
     // OPEN ANDROID FILE PICKER
     private fun openConfigPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
