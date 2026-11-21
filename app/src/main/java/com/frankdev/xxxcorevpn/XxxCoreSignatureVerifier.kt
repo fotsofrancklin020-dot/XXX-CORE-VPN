@@ -9,7 +9,7 @@ import java.security.spec.X509EncodedKeySpec
 
 object XxxCoreSignatureVerifier {
 
-    private const val PUBLIC_KEY_BASE64 = "MIIBCgKCAQEArMM/6/8uSgMSuzywaiMpTsEUfk4nnWath5VshrKr1yMdraTllsSW/ZmdpEhdXZgDU4GGaRtl4QAUFQ+EFBKPfsH6g+xhUDusfnP3dAj2d7hDWi3/6oDhLayeEihkUAnlFkDuwOrzxWHMI9KCSVSDOR6DQKKVakb+hgsmFHrino+g0TAunYV5meDuKS+U+WcTU8fN93aDkh21nZ4lqCnsy6goebszNh+wu/1zd0YOoz1grFI3a42xpWkitEMWheBcD2Kh1NCUVlI9gWJOrch3CTCopUEhY5kG/LYTQQQXLD0cDE9Z/jgoe2TowfgH+aF6FXZ+vmhAIndC1cN4VdeBBQIDAQAB"
+    private const val PUBLIC_KEY_BASE64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArMM/6/8uSgMSuzywaiMpTsEUfk4nnWath5VshrKr1yMdraTllsSW/ZmdpEhdXZgDU4GGaRtl4QAUFQ+EFBKPfsH6g+xhUDusfnP3dAj2d7hDWi3/6oDhLayeEihkUAnlFkDuwOrzxWHMI9KCSVSDOR6DQKKVakb+hgsmFHrino+g0TAunYV5meDuKS+U+WcTU8fN93aDkh21nZ4lqCnsy6goebszNh+wu/1zd0YOoz1grFI3a42xpWkitEMWheBcD2Kh1NCUVlI9gWJOrch3CTCopUEhY5kG/LYTQQQXLD0cDE9Z/jgoe2TowfgH+aF6FXZ+vmhAIndC1cN4VdeBBQIDAQAB"
 
     fun verify(content: String) {
         val envelope = JSONObject(content)
