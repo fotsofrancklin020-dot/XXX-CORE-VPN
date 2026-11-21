@@ -446,7 +446,141 @@ class MainActivity : Activity() {
 
         setContentView(rootLayout)
     }
+// IMPORT CONFIG OPTIONS
+private fun showImportOptionsDialog() {
+    val options = arrayOf(
+        "VMess / VLESS Link",
+        "XXXCORE File"
+    )
 
+    AlertDialog.Builder(this)
+        .setTitle("IMPORT CONFIG")
+        .setItems(options) { _, which ->
+            when (which) {
+                0 -> showLinkImportDialog()
+                1 -> openConfigPicker()
+            }
+        }
+        .setNegativeButton("Annuler", null)
+        .show()
+}
+
+// IMPORT VMESS / VLESS LINK
+private fun showLinkImportDialog() {
+    val input = EditText(this).apply {
+        hint = "Colle ton lien vmess:// ou vless://"
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        minLines = 3
+        setPadding(32, 24, 32, 24)
+    }
+
+    val dialog = AlertDialog.Builder(this)
+        .setTitle("IMPORT VMess / VLESS")
+        .setView(input)
+        .setPositiveButton("Importer", null)
+        .setNegativeButton("Annuler", null)
+        .create()
+
+    dialog.setOnShowListener {
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            .setOnClickListener {
+                val link = input.text.toString().trim()
+
+                try {
+                    require(link.isNotBlank()) {
+                        "Colle d'abord un lien VMess ou VLESS."
+                    }
+
+                    val outbound: JSONObject
+                    val configName: String
+
+                    when {
+                        link.startsWith("vmess://", true) -> {
+                            val config = VmessLinkParser.parse(link)
+
+                            outbound = VmessLinkParser
+                                .toSingBoxOutboundJson(config)
+
+                            configName = config.name.ifBlank {
+                                "${config.server}:${config.port}"
+                            }
+
+                            getPreferences(MODE_PRIVATE).edit()
+                                .putString(
+                                    "imported_vmess_outbound",
+                                    outbound.toString(2)
+                                )
+                                .putString(
+                                    "imported_vmess_name",
+                                    configName
+                                )
+                                .apply()
+
+                            dialog.dismiss()
+                            showImportedConfig(config)
+                        }
+
+                        link.startsWith("vless://", true) -> {
+                            outbound = VlessLinkParser.parse(link)
+
+                            configName = VlessLinkParser.getName(link)
+                                .ifBlank {
+                                    "${outbound.getString("server")}:" +
+                                        outbound.getInt("server_port")
+                                }
+
+                            getPreferences(MODE_PRIVATE).edit()
+                                .putString(
+                                    "imported_vmess_outbound",
+                                    outbound.toString(2)
+                                )
+                                .putString(
+                                    "imported_vmess_name",
+                                    configName
+                                )
+                                .apply()
+
+                            dialog.dismiss()
+
+                            AlertDialog.Builder(this)
+                                .setTitle("Configuration VLESS importée")
+                                .setMessage(
+                                    "Nom : $configName\n\n" +
+                                        "Protocole : VLESS\n" +
+                                        "Serveur : ${outbound.getString("server")}\n" +
+                                        "Port : ${outbound.getInt("server_port")}\n\n" +
+                                        "Configuration enregistrée localement."
+                                )
+                                .setPositiveButton("OK", null)
+                                .show()
+
+                            Toast.makeText(
+                                this,
+                                "Importation VLESS réussie",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException(
+                                "Lien non reconnu. Utilise vmess:// ou vless://."
+                            )
+                        }
+                    }
+
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this,
+                        e.message ?: "Échec de l'importation.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+    }
+
+    dialog.show()
+}
     // OPEN ANDROID FILE PICKER
     private fun openConfigPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
