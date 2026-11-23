@@ -1,6 +1,8 @@
+
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "frankdev-xxxcore-server",
+  "main": "index.ts",
   "compatibility_date": "2026-11-22",
   "d1_databases": [
     {
