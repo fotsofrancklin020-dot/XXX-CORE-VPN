@@ -459,6 +459,91 @@ export default {
       }
     }
 
+    // ADMIN ENABLE / DISABLE CLIENT
+    const clientStatusMatch = url.pathname.match(
+      /^\/admin\/clients\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/status$/i
+    );
+
+    if (
+      request.method === "PATCH" &&
+      clientStatusMatch
+    ) {
+      if (!env.XXXCORE_ADMIN_SECRET) {
+        return json({
+          error: "Admin secret not configured",
+        }, 503);
+      }
+
+      try {
+        if (!(await verifyAdminAccess(request, env))) {
+          return json({
+            error: "Unauthorized",
+          }, 403);
+        }
+      } catch (error) {
+        console.error("CLIENT_STATUS_AUTH_ERROR:", error);
+
+        return json({
+          error: "Authentication service unavailable",
+        }, 503);
+      }
+
+      let body: { active?: boolean };
+
+      try {
+        body = await request.json();
+      } catch {
+        return json({
+          error: "Invalid JSON",
+        }, 400);
+      }
+
+      if (typeof body.active !== "boolean") {
+        return json({
+          error: "The active field must be true or false",
+        }, 400);
+      }
+
+      const clientId = clientStatusMatch[1];
+      const active = body.active;
+
+      try {
+        const result = await env.DB.prepare(
+          `UPDATE clients
+           SET active = ?
+           WHERE id = ?`
+        )
+          .bind(active ? 1 : 0, clientId)
+          .run();
+
+        if (result.meta.changes === 0) {
+          return json({
+            error: "Client not found",
+          }, 404);
+        }
+
+        await logAdminAction(
+          env,
+          active ? "CLIENT_ENABLED" : "CLIENT_DISABLED",
+          `Client ${clientId} ${active ? "enabled" : "disabled"}`
+        );
+
+        return json({
+          status: "updated",
+          client: {
+            id: clientId,
+            active,
+          },
+        });
+      } catch (error) {
+        console.error("CLIENT_STATUS_UPDATE_ERROR:", error);
+
+        return json({
+          error: "Client status update failed",
+        }, 500);
+      }
+    }
+
     return json({
       error: "Route not found",
     }, 404);
