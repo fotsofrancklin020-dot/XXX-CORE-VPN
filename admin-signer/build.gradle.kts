@@ -1,15 +1,14 @@
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
 android {
-    namespace = "com.frankdev.xxxcoreadminsigner"
+    namespace = "com.frankdev.cloudflarexuipanel"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.frankdev.xxxcoreadminsigner"
+        applicationId = "com.frankdev.cloudflarexuipanel"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
