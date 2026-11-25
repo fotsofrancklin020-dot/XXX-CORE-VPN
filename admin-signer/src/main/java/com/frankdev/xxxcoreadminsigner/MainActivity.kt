@@ -247,6 +247,8 @@ class MainActivity : Activity() {
             "Tous les clients" -> loadClients("all")
             "Clients actifs" -> loadClients("active")
             "Clients désactivés" -> loadClients("disabled")
+            "Clients en ligne" -> loadOnlineClients(false)
+            "Déconnecter un client" -> loadOnlineClients(true)
             else -> showMessage(
                 option,
                 "Cette fonction sera connectée au serveur Cloudflare dans une prochaine étape."
@@ -628,6 +630,269 @@ class MainActivity : Activity() {
             params.setMargins(0, 9, 0, 9)
 
             body.addView(card, params)
+        }
+    }
+
+    private fun loadOnlineClients(disconnectMode: Boolean) {
+        if (adminToken.isBlank()) {
+            showMessage(
+                "Connexion requise",
+                "Connecte-toi comme administrateur."
+            )
+            return
+        }
+
+        Thread {
+            var connection: HttpURLConnection? = null
+
+            try {
+                connection = URL(
+                    "$workerUrl/admin/clients/online"
+                ).openConnection() as HttpURLConnection
+
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                connection.setRequestProperty(
+                    "Authorization",
+                    "Bearer $adminToken"
+                )
+
+                val response = readResponse(connection)
+                val json = JSONObject(response)
+
+                if (connection.responseCode !in 200..299) {
+                    throw Exception(
+                        json.optString(
+                            "error",
+                            "Impossible de récupérer les clients en ligne."
+                        )
+                    )
+                }
+
+                val clients =
+                    json.optJSONArray("clients") ?: JSONArray()
+
+                runOnUiThread {
+                    showOnlineClients(clients, disconnectMode)
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showMessage(
+                        "Erreur",
+                        e.message ?: "Erreur de connexion au serveur."
+                    )
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
+    private fun showOnlineClients(
+        clients: JSONArray,
+        disconnectMode: Boolean
+    ) {
+        currentScreen = "online"
+        body.removeAllViews()
+
+        body.addView(
+            makeText(
+                if (disconnectMode) "DÉCONNECTER UN CLIENT"
+                else "CLIENTS EN LIGNE",
+                22f,
+                blue,
+                true
+            )
+        )
+
+        body.addView(
+            makeText(
+                "${clients.length()} session(s) détectée(s)",
+                14f,
+                Color.WHITE
+            )
+        )
+
+        val back = makeButton("← Retour au tableau de bord")
+        back.setOnClickListener {
+            showDashboard()
+        }
+        body.addView(back)
+
+        val refresh = makeButton("↻ Actualiser")
+        refresh.setOnClickListener {
+            loadOnlineClients(disconnectMode)
+        }
+        body.addView(refresh)
+
+        if (clients.length() == 0) {
+            body.addView(
+                makeText(
+                    "Aucun client en ligne pour le moment.",
+                    15f,
+                    Color.WHITE
+                )
+            )
+            return
+        }
+
+        for (i in 0 until clients.length()) {
+            val client = clients.getJSONObject(i)
+
+            val sessionId = client.optString("session_id")
+            val username = client.optString("username")
+            val connectedAt = client.optLong("connected_at", 0)
+            val lastSeenAt = client.optLong("last_seen_at", 0)
+
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(14, 14, 14, 14)
+
+                background = GradientDrawable().apply {
+                    setColor(Color.rgb(15, 31, 50))
+                    cornerRadius = 15f
+                    setStroke(1, blue)
+                }
+            }
+
+            card.addView(
+                makeText(username, 19f, Color.WHITE, true)
+            )
+
+            card.addView(
+                makeText("● EN LIGNE", 13f, blue, true)
+            )
+
+            card.addView(
+                makeText(
+                    "Connecté depuis : ${formatTimestamp(connectedAt)}",
+                    12f,
+                    Color.LTGRAY
+                )
+            )
+
+            card.addView(
+                makeText(
+                    "Dernière activité : ${formatTimestamp(lastSeenAt)}",
+                    12f,
+                    Color.LTGRAY
+                )
+            )
+
+            if (disconnectMode) {
+                val disconnectButton = makeButton("Déconnecter ce client")
+
+                disconnectButton.setOnClickListener {
+                    AlertDialog.Builder(this)
+                        .setTitle("Confirmer la déconnexion")
+                        .setMessage(
+                            "Voulez-vous révoquer la session de $username ?"
+                        )
+                        .setPositiveButton("Déconnecter") { _, _ ->
+                            disconnectClient(sessionId, username)
+                        }
+                        .setNegativeButton("Annuler", null)
+                        .show()
+                }
+
+                card.addView(disconnectButton)
+            }
+
+            val params = LinearLayout.LayoutParams(-1, -2)
+            params.setMargins(0, 9, 0, 9)
+
+            body.addView(card, params)
+        }
+    }
+
+    private fun disconnectClient(
+        sessionId: String,
+        username: String
+    ) {
+        if (adminToken.isBlank()) {
+            showMessage(
+                "Connexion requise",
+                "La session administrateur est absente."
+            )
+            return
+        }
+
+        if (
+            !Regex(
+                "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            ).matches(sessionId)
+        ) {
+            showMessage(
+                "Erreur",
+                "Identifiant de session invalide."
+            )
+            return
+        }
+
+        Thread {
+            var connection: HttpURLConnection? = null
+
+            try {
+                connection = URL(
+                    "$workerUrl/admin/clients/sessions/$sessionId/disconnect"
+                ).openConnection() as HttpURLConnection
+
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                connection.setRequestProperty(
+                    "Authorization",
+                    "Bearer $adminToken"
+                )
+
+                val response = readResponse(connection)
+                val json = JSONObject(response)
+
+                if (connection.responseCode !in 200..299) {
+                    throw Exception(
+                        json.optString(
+                            "error",
+                            "La déconnexion a échoué."
+                        )
+                    )
+                }
+
+                runOnUiThread {
+                    showMessage(
+                        "Session révoquée",
+                        "La session de $username a été révoquée côté serveur."
+                    )
+                    loadOnlineClients(true)
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showMessage(
+                        "Déconnexion impossible",
+                        e.message ?: "Erreur réseau."
+                    )
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        if (timestamp <= 0) return "Indisponible"
+
+        return try {
+            val formatter = java.text.SimpleDateFormat(
+                "dd/MM/yyyy HH:mm:ss",
+                java.util.Locale.getDefault()
+            )
+            formatter.format(java.util.Date(timestamp * 1000))
+        } catch (_: Exception) {
+            "Indisponible"
         }
     }
 
