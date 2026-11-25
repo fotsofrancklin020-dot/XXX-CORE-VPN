@@ -3,12 +3,13 @@
 
     <application
         android:allowBackup="false"
-        android:label="XXX-CORE Admin Signer"
+        android:label="Cloudflare X-UI Panel"
+        android:usesCleartextTraffic="false"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.frankdev.cloudflarexuipanel.MainActivity"
             android:exported="true">
 
             <intent-filter>
@@ -16,12 +17,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
-            </intent-filter>
-
         </activity>
+
     </application>
+
 </manifest>
