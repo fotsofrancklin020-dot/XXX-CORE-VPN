@@ -68,7 +68,8 @@ export default {
           status: "ok",
           database: "connected",
         });
-      } catch {
+      } catch (error) {
+        console.error("HEALTH_CHECK_ERROR:", error);
         return json({
           status: "error",
           database: "unavailable",
@@ -152,10 +153,12 @@ export default {
               created_at: createdAt,
             },
           }, 201);
-        } catch {
+        } catch (error) {
+          console.error("CLIENT_CREATE_ERROR:", error);
+
           return json({
-            error: "Could not create client. Username may already exist.",
-          }, 409);
+            error: "Client creation failed. Check Worker logs.",
+          }, 500);
         }
       }
 
@@ -170,7 +173,9 @@ export default {
           status: "ok",
           clients: result.results,
         });
-      } catch {
+      } catch (error) {
+        console.error("CLIENT_LIST_ERROR:", error);
+
         return json({
           error: "Database query failed",
         }, 500);
