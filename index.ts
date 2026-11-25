@@ -14,6 +14,34 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function randomToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const length = Math.max(a.length, b.length);
+  let difference = a.length ^ b.length;
+
+  for (let i = 0; i < length; i++) {
+    difference |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+
+  return difference === 0;
+}
+
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -49,6 +77,78 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${iterations}$${saltHex}$${hashHex}`;
 }
 
+async function logAdminAction(
+  env: Env,
+  action: string,
+  details: string
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO admin_logs (id, action, details, created_at)
+     VALUES (?, ?, ?, ?)`
+  )
+    .bind(
+      crypto.randomUUID(),
+      action,
+      details,
+      Math.floor(Date.now() / 1000)
+    )
+    .run();
+}
+
+async function verifySession(
+  request: Request,
+  env: Env
+): Promise<boolean> {
+  const authorization = request.headers.get("Authorization");
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return false;
+  }
+
+  const token = authorization.slice(7).trim();
+
+  if (!/^[a-f0-9]{64}$/.test(token)) {
+    return false;
+  }
+
+  const tokenHash = await sha256(token);
+  const now = Math.floor(Date.now() / 1000);
+
+  const session = await env.DB.prepare(
+    `SELECT id FROM admin_sessions
+     WHERE token_hash = ?
+       AND revoked = 0
+       AND expires_at > ?
+     LIMIT 1`
+  )
+    .bind(tokenHash, now)
+    .first();
+
+  return session !== null;
+}
+
+async function verifyAdminAccess(
+  request: Request,
+  env: Env
+): Promise<boolean> {
+  if (await verifySession(request, env)) {
+    return true;
+  }
+
+  // Temporary compatibility with the existing admin API.
+  // The Android panel must use the temporary session token.
+  const authorization = request.headers.get("Authorization");
+
+  return Boolean(
+    env.XXXCORE_ADMIN_SECRET &&
+    authorization &&
+    constantTimeEqual(
+      authorization,
+      `Bearer ${env.XXXCORE_ADMIN_SECRET}`
+    )
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -56,7 +156,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/") {
       return json({
         app: "XXX-CORE-VPN",
-        brand: "FRANKDEV Build",
+        brand: "FRANKDEV BUILD",
         status: "online",
       });
     }
@@ -64,12 +164,14 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       try {
         await env.DB.prepare("SELECT 1").first();
+
         return json({
           status: "ok",
           database: "connected",
         });
       } catch (error) {
         console.error("HEALTH_CHECK_ERROR:", error);
+
         return json({
           status: "error",
           database: "unavailable",
@@ -77,6 +179,169 @@ export default {
       }
     }
 
+    // ADMIN LOGIN
+    if (
+      request.method === "POST" &&
+      url.pathname === "/admin/login"
+    ) {
+      if (!env.XXXCORE_ADMIN_SECRET) {
+        return json({
+          error: "Admin secret not configured",
+        }, 503);
+      }
+
+      let body: { adminSecret?: string };
+
+      try {
+        body = await request.json();
+      } catch {
+        return json({
+          error: "Invalid JSON",
+        }, 400);
+      }
+
+      const suppliedSecret = body.adminSecret;
+
+      if (
+        typeof suppliedSecret !== "string" ||
+        !constantTimeEqual(
+          suppliedSecret,
+          env.XXXCORE_ADMIN_SECRET
+        )
+      ) {
+        try {
+          await logAdminAction(
+            env,
+            "LOGIN_FAILED",
+            "Rejected administrator authentication"
+          );
+        } catch (error) {
+          console.error("ADMIN_LOG_ERROR:", error);
+        }
+
+        return json({
+          error: "ACCÈS REFUSÉ",
+          message: "Veuillez Réessayer 🔄🔄🔄",
+        }, 403);
+      }
+
+      try {
+        const token = randomToken();
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+        const expiresAt = now + (8 * 60 * 60);
+
+        await env.DB.prepare(
+          `INSERT INTO admin_sessions
+           (id, token_hash, created_at, expires_at, revoked)
+           VALUES (?, ?, ?, ?, 0)`
+        )
+          .bind(
+            crypto.randomUUID(),
+            tokenHash,
+            now,
+            expiresAt
+          )
+          .run();
+
+        await logAdminAction(
+          env,
+          "LOGIN_SUCCESS",
+          "Administrator session created"
+        );
+
+        return json({
+          status: "authenticated",
+          token,
+          token_type: "Bearer",
+          expires_at: expiresAt,
+        });
+      } catch (error) {
+        console.error("ADMIN_LOGIN_ERROR:", error);
+
+        return json({
+          error: "Unable to create administrator session",
+        }, 500);
+      }
+    }
+
+    // CHECK ADMIN SESSION
+    if (
+      request.method === "GET" &&
+      url.pathname === "/admin/me"
+    ) {
+      try {
+        if (!(await verifySession(request, env))) {
+          return json({
+            error: "Session expired or invalid",
+          }, 403);
+        }
+
+        return json({
+          status: "authenticated",
+          role: "admin",
+          brand: "FRANKDEV BUILD",
+        });
+      } catch (error) {
+        console.error("ADMIN_SESSION_ERROR:", error);
+
+        return json({
+          error: "Session verification failed",
+        }, 500);
+      }
+    }
+
+    // ADMIN LOGOUT
+    if (
+      request.method === "POST" &&
+      url.pathname === "/admin/logout"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Session required",
+        }, 403);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid session",
+        }, 403);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+
+        await env.DB.prepare(
+          `UPDATE admin_sessions
+           SET revoked = 1
+           WHERE token_hash = ?`
+        )
+          .bind(tokenHash)
+          .run();
+
+        await logAdminAction(
+          env,
+          "LOGOUT",
+          "Administrator session revoked"
+        );
+
+        return json({
+          status: "logged_out",
+        });
+      } catch (error) {
+        console.error("ADMIN_LOGOUT_ERROR:", error);
+
+        return json({
+          error: "Logout failed",
+        }, 500);
+      }
+    }
+
+    // ADMIN CLIENT MANAGEMENT
     if (
       url.pathname === "/admin/clients" &&
       (request.method === "GET" || request.method === "POST")
@@ -87,12 +352,18 @@ export default {
         }, 503);
       }
 
-      const authorization = request.headers.get("Authorization");
+      try {
+        if (!(await verifyAdminAccess(request, env))) {
+          return json({
+            error: "Unauthorized",
+          }, 403);
+        }
+      } catch (error) {
+        console.error("ADMIN_AUTH_ERROR:", error);
 
-      if (authorization !== `Bearer ${env.XXXCORE_ADMIN_SECRET}`) {
         return json({
-          error: "Unauthorized",
-        }, 401);
+          error: "Authentication service unavailable",
+        }, 503);
       }
 
       if (request.method === "POST") {
@@ -143,6 +414,12 @@ export default {
           )
             .bind(id, username, passwordHash, createdAt)
             .run();
+
+          await logAdminAction(
+            env,
+            "CLIENT_CREATED",
+            `Client created: ${username}`
+          );
 
           return json({
             status: "created",
