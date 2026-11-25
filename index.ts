@@ -17,7 +17,7 @@ function json(data: unknown, status = 200): Response {
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iterations = 310000;
+  const iterations = 100000;
 
   const key = await crypto.subtle.importKey(
     "raw",
