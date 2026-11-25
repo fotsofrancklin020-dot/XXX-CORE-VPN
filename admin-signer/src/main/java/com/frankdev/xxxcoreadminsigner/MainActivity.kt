@@ -272,13 +272,13 @@ class MainActivity : Activity() {
 
         val usernameInput = EditText(this).apply {
             hint = "Nom d'utilisateur (3 à 32 caractères)"
-            singleLine = true
+            setSingleLine(true)
             inputType = 1
         }
 
         val passwordInput = EditText(this).apply {
             hint = "Mot de passe (10 à 128 caractères)"
-            singleLine = true
+            setSingleLine(true)
             inputType = 129
         }
 
