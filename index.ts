@@ -135,8 +135,7 @@ async function verifyAdminAccess(
     return true;
   }
 
-  // Temporary compatibility with the existing admin API.
-  // The Android panel must use the temporary session token.
+  // Compatibilité temporaire avec l'ancienne API administrateur.
   const authorization = request.headers.get("Authorization");
 
   return Boolean(
@@ -147,6 +146,26 @@ async function verifyAdminAccess(
       `Bearer ${env.XXXCORE_ADMIN_SECRET}`
     )
   );
+}
+
+async function requireAdmin(
+  request: Request,
+  env: Env
+): Promise<Response | null> {
+  if (!env.XXXCORE_ADMIN_SECRET) {
+    return json({ error: "Admin secret not configured" }, 503);
+  }
+
+  try {
+    if (!(await verifyAdminAccess(request, env))) {
+      return json({ error: "Unauthorized" }, 403);
+    }
+
+    return null;
+  } catch (error) {
+    console.error("ADMIN_AUTH_ERROR:", error);
+    return json({ error: "Authentication service unavailable" }, 503);
+  }
 }
 
 export default {
@@ -185,9 +204,7 @@ export default {
       url.pathname === "/admin/login"
     ) {
       if (!env.XXXCORE_ADMIN_SECRET) {
-        return json({
-          error: "Admin secret not configured",
-        }, 503);
+        return json({ error: "Admin secret not configured" }, 503);
       }
 
       let body: { adminSecret?: string };
@@ -195,19 +212,14 @@ export default {
       try {
         body = await request.json();
       } catch {
-        return json({
-          error: "Invalid JSON",
-        }, 400);
+        return json({ error: "Invalid JSON" }, 400);
       }
 
       const suppliedSecret = body.adminSecret;
 
       if (
         typeof suppliedSecret !== "string" ||
-        !constantTimeEqual(
-          suppliedSecret,
-          env.XXXCORE_ADMIN_SECRET
-        )
+        !constantTimeEqual(suppliedSecret, env.XXXCORE_ADMIN_SECRET)
       ) {
         try {
           await logAdminAction(
@@ -299,17 +311,13 @@ export default {
       const authorization = request.headers.get("Authorization");
 
       if (!authorization?.startsWith("Bearer ")) {
-        return json({
-          error: "Session required",
-        }, 403);
+        return json({ error: "Session required" }, 403);
       }
 
       const token = authorization.slice(7).trim();
 
       if (!/^[a-f0-9]{64}$/.test(token)) {
-        return json({
-          error: "Invalid session",
-        }, 403);
+        return json({ error: "Invalid session" }, 403);
       }
 
       try {
@@ -329,15 +337,11 @@ export default {
           "Administrator session revoked"
         );
 
-        return json({
-          status: "logged_out",
-        });
+        return json({ status: "logged_out" });
       } catch (error) {
         console.error("ADMIN_LOGOUT_ERROR:", error);
 
-        return json({
-          error: "Logout failed",
-        }, 500);
+        return json({ error: "Logout failed" }, 500);
       }
     }
 
@@ -346,25 +350,8 @@ export default {
       url.pathname === "/admin/clients" &&
       (request.method === "GET" || request.method === "POST")
     ) {
-      if (!env.XXXCORE_ADMIN_SECRET) {
-        return json({
-          error: "Admin secret not configured",
-        }, 503);
-      }
-
-      try {
-        if (!(await verifyAdminAccess(request, env))) {
-          return json({
-            error: "Unauthorized",
-          }, 403);
-        }
-      } catch (error) {
-        console.error("ADMIN_AUTH_ERROR:", error);
-
-        return json({
-          error: "Authentication service unavailable",
-        }, 503);
-      }
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
 
       if (request.method === "POST") {
         let body: {
@@ -375,9 +362,7 @@ export default {
         try {
           body = await request.json();
         } catch {
-          return json({
-            error: "Invalid JSON",
-          }, 400);
+          return json({ error: "Invalid JSON" }, 400);
         }
 
         const username = body.username?.trim().toLowerCase();
@@ -387,9 +372,7 @@ export default {
           !username ||
           !/^[a-z0-9_.-]{3,32}$/.test(username)
         ) {
-          return json({
-            error: "Invalid username",
-          }, 400);
+          return json({ error: "Invalid username" }, 400);
         }
 
         if (
@@ -453,8 +436,102 @@ export default {
       } catch (error) {
         console.error("CLIENT_LIST_ERROR:", error);
 
+        return json({ error: "Database query failed" }, 500);
+      }
+    }
+
+    // ADMIN ONLINE CLIENTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/admin/clients/online"
+    ) {
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
+
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const onlineSince = now - 90;
+
+        const result = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             c.username,
+             s.connected_at,
+             s.last_seen_at
+           FROM client_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.revoked = 0
+             AND s.last_seen_at >= ?
+             AND c.active = 1
+           ORDER BY s.last_seen_at DESC`
+        )
+          .bind(onlineSince)
+          .all();
+
         return json({
-          error: "Database query failed",
+          status: "ok",
+          online_count: result.results.length,
+          online_since: onlineSince,
+          clients: result.results,
+        });
+      } catch (error) {
+        console.error("ONLINE_CLIENTS_ERROR:", error);
+
+        return json({
+          error: "Unable to retrieve online clients",
+        }, 500);
+      }
+    }
+
+    // ADMIN DISCONNECT CLIENT SESSION
+    const disconnectMatch = url.pathname.match(
+      /^\/admin\/clients\/sessions\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/disconnect$/i
+    );
+
+    if (
+      request.method === "POST" &&
+      disconnectMatch
+    ) {
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
+
+      const sessionId = disconnectMatch[1];
+      const now = Math.floor(Date.now() / 1000);
+
+      try {
+        const result = await env.DB.prepare(
+          `UPDATE client_sessions
+           SET revoked = 1,
+               disconnected_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, sessionId)
+          .run();
+
+        if (result.meta.changes === 0) {
+          return json({
+            error: "Session not found or already disconnected",
+          }, 404);
+        }
+
+        await logAdminAction(
+          env,
+          "CLIENT_SESSION_DISCONNECTED",
+          `Client session disconnected: ${sessionId}`
+        );
+
+        return json({
+          status: "disconnected",
+          session_id: sessionId,
+          disconnected_at: now,
+        });
+      } catch (error) {
+        console.error("CLIENT_DISCONNECT_ERROR:", error);
+
+        return json({
+          error: "Unable to disconnect client session",
         }, 500);
       }
     }
@@ -468,34 +545,15 @@ export default {
       request.method === "PATCH" &&
       clientStatusMatch
     ) {
-      if (!env.XXXCORE_ADMIN_SECRET) {
-        return json({
-          error: "Admin secret not configured",
-        }, 503);
-      }
-
-      try {
-        if (!(await verifyAdminAccess(request, env))) {
-          return json({
-            error: "Unauthorized",
-          }, 403);
-        }
-      } catch (error) {
-        console.error("CLIENT_STATUS_AUTH_ERROR:", error);
-
-        return json({
-          error: "Authentication service unavailable",
-        }, 503);
-      }
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
 
       let body: { active?: boolean };
 
       try {
         body = await request.json();
       } catch {
-        return json({
-          error: "Invalid JSON",
-        }, 400);
+        return json({ error: "Invalid JSON" }, 400);
       }
 
       if (typeof body.active !== "boolean") {
@@ -517,9 +575,7 @@ export default {
           .run();
 
         if (result.meta.changes === 0) {
-          return json({
-            error: "Client not found",
-          }, 404);
+          return json({ error: "Client not found" }, 404);
         }
 
         await logAdminAction(
@@ -544,8 +600,6 @@ export default {
       }
     }
 
-    return json({
-      error: "Route not found",
-    }, 404);
+    return json({ error: "Route not found" }, 404);
   },
 };
