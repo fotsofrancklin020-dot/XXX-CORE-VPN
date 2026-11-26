@@ -3,6 +3,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+
     <application
         android:allowBackup="true"
         android:label="XXX-CORE VPN"
@@ -29,10 +35,13 @@
         <service
             android:name=".FrankVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="systemExempted"
             android:exported="false">
+
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+
         </service>
 
     </application>
