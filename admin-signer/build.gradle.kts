@@ -1,7 +1,12 @@
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val stableKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val stableKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val stableKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
 
 android {
     namespace = "com.frankdev.cloudflarexuipanel"
@@ -11,8 +16,27 @@ android {
         applicationId = "com.frankdev.cloudflarexuipanel"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
+    }
+
+    signingConfigs {
+        if (!stableKeystorePath.isNullOrBlank()) {
+            create("frankdev") {
+                storeFile = file(stableKeystorePath)
+                storePassword = stableKeystorePassword
+                keyAlias = stableKeyAlias
+                keyPassword = stableKeystorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (!stableKeystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("frankdev")
+            }
+        }
     }
 
     compileOptions {
