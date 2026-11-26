@@ -121,10 +121,8 @@ class FrankVpnService : VpnService() {
 
             val coreConfig = buildCoreConfig(outboundJson)
 
-            val startOptions = StartOptions().apply {
-                coreConfig = this@FrankVpnService
-                    .let { coreConfig }
-            }
+            val startOptions = StartOptions()
+            startOptions.setCoreConfig(coreConfig)
 
             val engine = Mobile.newInstance(
                 AndroidPlatform(this),
