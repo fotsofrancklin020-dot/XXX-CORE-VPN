@@ -135,7 +135,6 @@ async function verifyAdminAccess(
     return true;
   }
 
-  // Compatibilité temporaire avec l'ancienne API administrateur.
   const authorization = request.headers.get("Authorization");
 
   return Boolean(
@@ -172,6 +171,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // ROOT
     if (request.method === "GET" && url.pathname === "/") {
       return json({
         app: "XXX-CORE-VPN",
@@ -180,6 +180,7 @@ export default {
       });
     }
 
+    // HEALTH
     if (request.method === "GET" && url.pathname === "/health") {
       try {
         await env.DB.prepare("SELECT 1").first();
@@ -345,7 +346,7 @@ export default {
       }
     }
 
-    // ADMIN CLIENT MANAGEMENT
+    // ADMIN CLIENT LIST AND CREATION
     if (
       url.pathname === "/admin/clients" &&
       (request.method === "GET" || request.method === "POST")
@@ -532,6 +533,95 @@ export default {
 
         return json({
           error: "Unable to disconnect client session",
+        }, 500);
+      }
+    }
+
+    // ADMIN PERMANENT CLIENT DELETE
+    const clientDeleteMatch = url.pathname.match(
+      /^\/admin\/clients\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+    );
+
+    if (
+      request.method === "DELETE" &&
+      clientDeleteMatch
+    ) {
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
+
+      const clientId = clientDeleteMatch[1];
+      const now = Math.floor(Date.now() / 1000);
+
+      try {
+        const client = await env.DB.prepare(
+          `SELECT username
+           FROM clients
+           WHERE id = ?
+           LIMIT 1`
+        )
+          .bind(clientId)
+          .first<{ username: string }>();
+
+        if (!client) {
+          return json({ error: "Client not found" }, 404);
+        }
+
+        // Toutes les opérations sont exécutées dans une transaction D1.
+        const results = await env.DB.batch([
+          env.DB.prepare(
+            `UPDATE client_sessions
+             SET revoked = 1,
+                 disconnected_at = ?
+             WHERE client_id = ?
+               AND revoked = 0`
+          ).bind(now, clientId),
+
+          env.DB.prepare(
+            `DELETE FROM client_configs
+             WHERE client_id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `DELETE FROM client_sessions
+             WHERE client_id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `DELETE FROM clients
+             WHERE id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `INSERT INTO admin_logs
+             (id, action, details, created_at)
+             VALUES (?, ?, ?, ?)`
+          ).bind(
+            crypto.randomUUID(),
+            "CLIENT_DELETED",
+            `Client permanently deleted: ${client.username} (${clientId})`,
+            now
+          ),
+        ]);
+
+        if (results[3].meta.changes === 0) {
+          return json({
+            error: "Client deletion failed",
+          }, 409);
+        }
+
+        return json({
+          status: "deleted",
+          client_id: clientId,
+          username: client.username,
+          deleted_at: now,
+          sessions_revoked: true,
+          configurations_deleted: true,
+        });
+      } catch (error) {
+        console.error("CLIENT_DELETE_ERROR:", error);
+
+        return json({
+          error: "Unable to permanently delete client",
         }, 500);
       }
     }
