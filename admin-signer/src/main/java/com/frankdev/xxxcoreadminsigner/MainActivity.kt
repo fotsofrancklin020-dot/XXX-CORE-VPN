@@ -7,10 +7,10 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
-import android.os.Bundle
+import android.animation.ValueAnimator
 import android.view.Gravity
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridLayout
@@ -18,6 +18,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.os.Bundle
+import android.net.Uri
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.HttpURLConnection
@@ -26,6 +28,10 @@ import java.net.URL
 class MainActivity : Activity() {
 
     private val blue = Color.rgb(0, 170, 255)
+    private val cyan = Color.rgb(0, 230, 255)
+    private val green = Color.rgb(35, 235, 135)
+    private val red = Color.rgb(255, 65, 85)
+    private val grey = Color.rgb(155, 165, 180)
     private val dark = Color.rgb(8, 13, 25)
 
     private val workerUrl =
@@ -36,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private lateinit var statusText: TextView
     private var currentScreen = "dashboard"
+    private var pulseCounter = 0
 
     private val options = listOf(
         "Tableau de bord",
@@ -67,6 +74,36 @@ class MainActivity : Activity() {
         showDashboard()
     }
 
+    // ANIMATION LUMINEUSE INDIVIDUELLE
+    private fun pulse(view: View, strength: Float = 0.025f) {
+        pulseCounter++
+
+        val delay = (pulseCounter % 7) * 115L
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1250L + (pulseCounter % 4) * 180L
+            startDelay = delay
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = AccelerateDecelerateInterpolator()
+
+            addUpdateListener {
+                val value = it.animatedValue as Float
+                val factor = 1f - strength + (strength * value)
+
+                view.alpha = 0.88f + (0.12f * value)
+                view.scaleX = factor
+                view.scaleY = factor
+            }
+        }
+
+        animator.start()
+    }
+
+    private fun pulseStatus(view: View, strength: Float = 0.045f) {
+        pulse(view, strength)
+    }
+
     private fun buildInterface() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -80,7 +117,9 @@ class MainActivity : Activity() {
             visibility = View.GONE
         }
 
-        drawer.addView(makeText("MENU", 20f, blue, true))
+        val menuTitle = makeText("MENU", 20f, cyan, true)
+        pulse(menuTitle, 0.035f)
+        drawer.addView(menuTitle)
 
         val aboutButton = makeButton("À propos")
         aboutButton.setOnClickListener {
@@ -107,8 +146,9 @@ class MainActivity : Activity() {
                 else View.VISIBLE
         }
 
-        val heading = makeText("XXX-CORE ADMIN", 17f, blue, true)
+        val heading = makeText("XXX-CORE ADMIN", 17f, cyan, true)
         heading.gravity = Gravity.CENTER
+        pulse(heading, 0.035f)
 
         val loginButton = makeButton("Connexion")
         loginButton.setOnClickListener {
@@ -136,6 +176,7 @@ class MainActivity : Activity() {
             blue
         )
         statusText.setPadding(12, 8, 12, 8)
+        pulse(statusText, 0.02f)
 
         main.addView(toolbar)
         main.addView(statusText)
@@ -180,8 +221,24 @@ class MainActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(Color.rgb(18, 48, 78))
                 cornerRadius = 16f
-                setStroke(1, blue)
+                setStroke(2, blue)
             }
+            pulse(this, 0.018f)
+        }
+    }
+
+    private fun makeCard(color: Int = blue): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14, 14, 14, 14)
+
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(15, 31, 50))
+                cornerRadius = 17f
+                setStroke(2, color)
+            }
+
+            pulse(this, 0.018f)
         }
     }
 
@@ -189,19 +246,31 @@ class MainActivity : Activity() {
         currentScreen = "dashboard"
         body.removeAllViews()
 
-        body.addView(
-            makeText("FRANKDEV BUILD", 15f, blue, true)
+        val brand = makeText(
+            "FRANKDEV BUILD",
+            15f,
+            cyan,
+            true
         )
-        body.addView(
-            makeText("TABLEAU DE BORD", 25f, Color.WHITE, true)
+        pulse(brand, 0.04f)
+        body.addView(brand)
+
+        val title = makeText(
+            "TABLEAU DE BORD",
+            25f,
+            Color.WHITE,
+            true
         )
-        body.addView(
-            makeText(
-                "Administration Cloudflare X-UI",
-                13f,
-                blue
-            )
+        pulse(title, 0.025f)
+        body.addView(title)
+
+        val subtitle = makeText(
+            "Administration Cloudflare X-UI",
+            13f,
+            blue
         )
+        pulse(subtitle, 0.025f)
+        body.addView(subtitle)
 
         val grid = GridLayout(this).apply {
             columnCount = 2
@@ -212,6 +281,7 @@ class MainActivity : Activity() {
         for (option in options) {
             val button = makeButton(option)
             button.minHeight = 76
+
             button.setOnClickListener {
                 handleOption(option)
             }
@@ -231,13 +301,13 @@ class MainActivity : Activity() {
 
         body.addView(grid)
 
-        body.addView(
-            makeText(
-                "SECURITY BY FRANKDEV\n© 2026 FRANKDEV BUILD",
-                12f,
-                blue
-            )
+        val footer = makeText(
+            "SECURITY BY FRANKDEV\n© 2026 FRANKDEV BUILD",
+            12f,
+            cyan
         )
+        pulse(footer, 0.025f)
+        body.addView(footer)
     }
 
     private fun handleOption(option: String) {
@@ -407,6 +477,7 @@ class MainActivity : Activity() {
         val input = EditText(this).apply {
             hint = "Secret administrateur"
             inputType = 129
+            setSingleLine(true)
         }
 
         AlertDialog.Builder(this)
@@ -464,6 +535,7 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         statusText.text =
                             "Administrateur connecté"
+                        statusText.setTextColor(green)
 
                         showMessage(
                             "Connexion réussie",
@@ -569,9 +641,14 @@ class MainActivity : Activity() {
         currentScreen = "clients"
         body.removeAllViews()
 
-        body.addView(
-            makeText("GESTION DES CLIENTS", 22f, blue, true)
+        val title = makeText(
+            "GESTION DES CLIENTS",
+            22f,
+            cyan,
+            true
         )
+        pulse(title, 0.035f)
+        body.addView(title)
 
         val back = makeButton("← Retour au tableau de bord")
         back.setOnClickListener {
@@ -592,29 +669,27 @@ class MainActivity : Activity() {
             val username = client.optString("username")
             val active = client.optInt("active", 0) == 1
 
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(12, 12, 12, 12)
+            val stateColor = if (active) blue else red
 
-                background = GradientDrawable().apply {
-                    setColor(Color.rgb(15, 31, 50))
-                    cornerRadius = 15f
-                    setStroke(1, blue)
-                }
-            }
+            val card = makeCard(stateColor)
 
-            card.addView(
-                makeText(username, 18f, Color.WHITE, true)
+            val name = makeText(
+                username,
+                18f,
+                Color.WHITE,
+                true
             )
+            pulse(name, 0.035f)
+            card.addView(name)
 
-            card.addView(
-                makeText(
-                    if (active) "Statut : Actif"
-                    else "Statut : Désactivé",
-                    13f,
-                    if (active) blue else Color.LTGRAY
-                )
+            val status = makeText(
+                if (active) "● ACTIF" else "● DÉSACTIVÉ",
+                14f,
+                stateColor,
+                true
             )
+            pulseStatus(status, 0.055f)
+            card.addView(status)
 
             val toggle = makeButton(
                 if (active) "Désactiver" else "Activer"
@@ -698,23 +773,24 @@ class MainActivity : Activity() {
         currentScreen = "online"
         body.removeAllViews()
 
-        body.addView(
-            makeText(
-                if (disconnectMode) "DÉCONNECTER UN CLIENT"
-                else "CLIENTS EN LIGNE",
-                22f,
-                blue,
-                true
-            )
+        val title = makeText(
+            if (disconnectMode) "DÉCONNECTER UN CLIENT"
+            else "CLIENTS EN LIGNE",
+            22f,
+            cyan,
+            true
         )
+        pulse(title, 0.035f)
+        body.addView(title)
 
-        body.addView(
-            makeText(
-                "${clients.length()} session(s) détectée(s)",
-                14f,
-                Color.WHITE
-            )
+        val count = makeText(
+            "${clients.length()} session(s) détectée(s)",
+            14f,
+            green,
+            true
         )
+        pulseStatus(count)
+        body.addView(count)
 
         val back = makeButton("← Retour au tableau de bord")
         back.setOnClickListener {
@@ -747,24 +823,25 @@ class MainActivity : Activity() {
             val connectedAt = client.optLong("connected_at", 0)
             val lastSeenAt = client.optLong("last_seen_at", 0)
 
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(14, 14, 14, 14)
+            val card = makeCard(green)
 
-                background = GradientDrawable().apply {
-                    setColor(Color.rgb(15, 31, 50))
-                    cornerRadius = 15f
-                    setStroke(1, blue)
-                }
-            }
-
-            card.addView(
-                makeText(username, 19f, Color.WHITE, true)
+            val name = makeText(
+                username,
+                19f,
+                Color.WHITE,
+                true
             )
+            pulse(name, 0.035f)
+            card.addView(name)
 
-            card.addView(
-                makeText("● EN LIGNE", 13f, blue, true)
+            val onlineStatus = makeText(
+                "● EN LIGNE",
+                14f,
+                green,
+                true
             )
+            pulseStatus(onlineStatus, 0.065f)
+            card.addView(onlineStatus)
 
             card.addView(
                 makeText(
@@ -783,7 +860,8 @@ class MainActivity : Activity() {
             )
 
             if (disconnectMode) {
-                val disconnectButton = makeButton("Déconnecter ce client")
+                val disconnectButton =
+                    makeButton("Déconnecter ce client")
 
                 disconnectButton.setOnClickListener {
                     AlertDialog.Builder(this)
@@ -997,8 +1075,10 @@ class MainActivity : Activity() {
                 )
             ).apply {
                 cornerRadius = 22f
-                setStroke(1, blue)
+                setStroke(2, cyan)
             }
+
+            pulse(this, 0.025f)
         }
 
         val appIcon = ImageView(this).apply {
@@ -1007,22 +1087,28 @@ class MainActivity : Activity() {
             )
             layoutParams =
                 LinearLayout.LayoutParams(100, 100)
+            pulse(this, 0.035f)
         }
 
         panel.addView(appIcon)
 
-        panel.addView(
-            makeText("XXX-CORE ADMIN", 25f, Color.WHITE, true)
+        val appTitle = makeText(
+            "XXX-CORE ADMIN",
+            25f,
+            Color.WHITE,
+            true
         )
+        pulse(appTitle, 0.04f)
+        panel.addView(appTitle)
 
-        panel.addView(
-            makeText(
-                "SIGNATURE FRANKDEV BUILD",
-                15f,
-                blue,
-                true
-            )
+        val signature = makeText(
+            "SIGNATURE FRANKDEV BUILD",
+            15f,
+            cyan,
+            true
         )
+        pulse(signature, 0.04f)
+        panel.addView(signature)
 
         val version = try {
             packageManager.getPackageInfo(
@@ -1055,14 +1141,14 @@ class MainActivity : Activity() {
             "https://chat.whatsapp.com/CklD1bALdPN4QztR3jpUqS?s=cl&p=a&iam=2"
         )
 
-        panel.addView(
-            makeText(
-                "© 2026 FRANKDEV BUILD\nTous droits réservés",
-                12f,
-                blue,
-                true
-            )
+        val copyright = makeText(
+            "© 2026 FRANKDEV BUILD\nTous droits réservés",
+            12f,
+            cyan,
+            true
         )
+        pulse(copyright, 0.035f)
+        panel.addView(copyright)
 
         body.addView(panel)
 
