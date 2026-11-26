@@ -216,12 +216,19 @@ class AndroidPlatform(
 
                     item.addresses = ArrayStringIterator(
                         javaInterface.interfaceAddresses.mapNotNull {
-                            val address = it.address ?: return@mapNotNull null
+                            val address = it.address
+                                ?: return@mapNotNull null
+
+                            // Correction du plantage IPv6 :
+                            // Android peut retourner une adresse avec une zone
+                            // comme fe80::1234%tun0.
+                            // ThroneCore refuse cette zone dans un préfixe CIDR.
                             val host = if (address is Inet6Address) {
-                                address.hostAddress
+                                address.hostAddress.substringBefore('%')
                             } else {
                                 address.hostAddress
                             }
+
                             "$host/${it.networkPrefixLength}"
                         }
                     )
@@ -285,6 +292,7 @@ class AndroidPlatform(
                     )
 
                     result.add(item)
+
                 } catch (_: Exception) {
                     continue
                 }
