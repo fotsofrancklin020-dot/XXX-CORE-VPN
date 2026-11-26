@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.net.VpnService
 import android.os.Bundle
+import android.os.Build
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -27,6 +28,7 @@ class MainActivity : Activity() {
     private val exportRequestCode = 1003
 
     private var pendingExportContent: String? = null
+    private var vpnButton: Button? = null
 
     private lateinit var subscriptionUrl: EditText
     private lateinit var udpServer: EditText
@@ -288,20 +290,42 @@ class MainActivity : Activity() {
             setTextColor(textColor)
         }
 
-        // CONNECT BUTTON
+        // CONNECT / DISCONNECT BUTTON
         val connectButton = Button(this).apply {
             text = "CONNECTER"
 
             setOnClickListener {
-                val vpnIntent = VpnService.prepare(this@MainActivity)
+                if (text.toString() == "DÉCONNECTER") {
 
-                if (vpnIntent != null) {
-                    startActivityForResult(vpnIntent, vpnRequestCode)
+                    val stopIntent = Intent(
+                        this@MainActivity,
+                        FrankVpnService::class.java
+                    ).apply {
+                        action = FrankVpnService.ACTION_DISCONNECT
+                    }
+
+                    startService(stopIntent)
+
+                    text = "CONNECTER"
+                    status.text = "VPN déconnecté"
+
                 } else {
-                    showVpnAuthorizationGranted()
+                    val vpnIntent =
+                        VpnService.prepare(this@MainActivity)
+
+                    if (vpnIntent != null) {
+                        startActivityForResult(
+                            vpnIntent,
+                            vpnRequestCode
+                        )
+                    } else {
+                        showVpnAuthorizationGranted()
+                    }
                 }
             }
         }
+
+        vpnButton = connectButton
 
         // SETTINGS BUTTON
         val settingsButton = Button(this).apply {
@@ -637,7 +661,6 @@ class MainActivity : Activity() {
                 "Le fichier est vide."
             }
 
-            // Vérification obligatoire de la signature et de l'expiration.
             XxxCoreSignatureVerifier.verify(content)
 
             val envelope = JSONObject(content)
@@ -702,7 +725,6 @@ class MainActivity : Activity() {
         content: String,
         password: String?
     ) {
-        // Revérifier la signature et l'expiration avant restauration.
         XxxCoreSignatureVerifier.verify(content)
 
         val envelope = JSONObject(content)
@@ -758,7 +780,6 @@ class MainActivity : Activity() {
             )
         }
 
-        // Enregistrer les données seulement après validation complète.
         editor.apply()
 
         subscriptionUrl.setText(
@@ -870,14 +891,67 @@ class MainActivity : Activity() {
         }
     }
 
-    // VPN AUTHORIZATION
+    // VPN AUTHORIZATION AND ENGINE START
     private fun showVpnAuthorizationGranted() {
-        status.text = "Autorisation accordée — moteur à démarrer"
 
-        Toast.makeText(
-            this,
-            "Autorisation VPN accordée",
-            Toast.LENGTH_SHORT
-        ).show()
+        val prefs = getPreferences(MODE_PRIVATE)
+
+        val outboundJson = prefs.getString(
+            "imported_vmess_outbound",
+            null
+        )
+
+        if (outboundJson.isNullOrBlank()) {
+            status.text = "Aucune configuration importée"
+
+            Toast.makeText(
+                this,
+                "Importe d'abord une configuration VMess ou VLESS",
+                Toast.LENGTH_LONG
+            ).show()
+
+            return
+        }
+
+        try {
+            JSONObject(outboundJson)
+
+            val serviceIntent = Intent(
+                this,
+                FrankVpnService::class.java
+            ).apply {
+                action = FrankVpnService.ACTION_CONNECT
+
+                putExtra(
+                    FrankVpnService.EXTRA_OUTBOUND_JSON,
+                    outboundJson
+                )
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+
+            vpnButton?.text = "DÉCONNECTER"
+            status.text = "Démarrage du moteur VPN..."
+
+            Toast.makeText(
+                this,
+                "Démarrage de XXX-CORE VPN",
+                Toast.LENGTH_SHORT
+            ).show()
+
+        } catch (e: Exception) {
+
+            status.text = "Erreur de démarrage VPN"
+
+            Toast.makeText(
+                this,
+                "Erreur : ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 }
