@@ -10,6 +10,8 @@ import android.graphics.drawable.GradientDrawable
 import android.animation.ValueAnimator
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.EditText
@@ -41,8 +43,11 @@ class MainActivity : Activity() {
     private lateinit var drawer: LinearLayout
     private lateinit var body: LinearLayout
     private lateinit var statusText: TextView
+    private lateinit var toolbar: LinearLayout
+
     private var currentScreen = "dashboard"
     private var pulseCounter = 0
+    private var loginSubmitButton: Button? = null
 
     private val options = listOf(
         "Tableau de bord",
@@ -68,8 +73,10 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         window.statusBarColor = dark
         window.navigationBarColor = dark
+
         buildInterface()
         showDashboard()
     }
@@ -132,7 +139,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
         }
 
-        val toolbar = LinearLayout(this).apply {
+        toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(10, 8, 10, 8)
@@ -152,7 +159,7 @@ class MainActivity : Activity() {
 
         val loginButton = makeButton("Connexion")
         loginButton.setOnClickListener {
-            showLoginDialog()
+            showLoginScreen()
         }
 
         toolbar.addView(menuButton)
@@ -167,8 +174,10 @@ class MainActivity : Activity() {
             setPadding(14, 14, 14, 20)
         }
 
-        val scroll = ScrollView(this)
-        scroll.addView(body)
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(body)
+        }
 
         statusText = makeText(
             "Administrateur non connecté",
@@ -244,6 +253,16 @@ class MainActivity : Activity() {
 
     private fun showDashboard() {
         currentScreen = "dashboard"
+        loginSubmitButton = null
+
+        toolbar.visibility = View.VISIBLE
+        statusText.visibility = View.VISIBLE
+        drawer.visibility = View.GONE
+
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        )
+
         body.removeAllViews()
 
         val brand = makeText(
@@ -473,27 +492,192 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun showLoginDialog() {
-        val input = EditText(this).apply {
-            hint = "Secret administrateur"
-            inputType = 129
-            setSingleLine(true)
+    // PAGE DE CONNEXION ADMINISTRATEUR
+    private fun showLoginScreen() {
+        currentScreen = "login"
+        drawer.visibility = View.GONE
+        toolbar.visibility = View.GONE
+        statusText.visibility = View.GONE
+        loginSubmitButton = null
+
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        )
+
+        body.removeAllViews()
+
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(18, 28, 18, 28)
+            minimumHeight = resources.displayMetrics.heightPixels
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Connexion administrateur")
-            .setView(input)
-            .setPositiveButton("Se connecter") { _, _ ->
-                val secret = input.text.toString()
+        val brand = makeText(
+            "FRANKDEV BUILD",
+            17f,
+            cyan,
+            true
+        )
+        pulse(brand, 0.045f)
+        page.addView(brand)
 
-                if (secret.isNotBlank()) {
-                    login(secret)
-                } else {
-                    showMessage("Erreur", "Secret manquant.")
-                }
+        val shield = makeText(
+            "✦",
+            58f,
+            blue,
+            true
+        )
+        pulse(shield, 0.055f)
+
+        val shieldParams = LinearLayout.LayoutParams(-1, -2)
+        shieldParams.setMargins(0, 14, 0, 8)
+        page.addView(shield, shieldParams)
+
+        val title = makeText(
+            "ACCÈS ADMINISTRATEUR",
+            23f,
+            Color.WHITE,
+            true
+        )
+        pulse(title, 0.035f)
+
+        val titleParams = LinearLayout.LayoutParams(-1, -2)
+        titleParams.setMargins(0, 8, 0, 6)
+        page.addView(title, titleParams)
+
+        val subtitle = makeText(
+            "CLOUDFLARE X-UI PANEL",
+            13f,
+            blue,
+            true
+        )
+        page.addView(subtitle)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(20, 24, 20, 22)
+
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(12, 27, 46))
+                cornerRadius = 24f
+                setStroke(2, blue)
             }
-            .setNegativeButton("Annuler", null)
-            .show()
+
+            pulse(this, 0.018f)
+        }
+
+        val cardTitle = makeText(
+            "Authentification sécurisée",
+            18f,
+            cyan,
+            true
+        )
+
+        val cardTitleParams = LinearLayout.LayoutParams(-1, -2)
+        cardTitleParams.setMargins(0, 0, 0, 12)
+        card.addView(cardTitle, cardTitleParams)
+
+        val explanation = makeText(
+            "Saisis ton secret administrateur pour accéder au panneau de contrôle.",
+            13f,
+            grey
+        )
+        explanation.setPadding(0, 0, 0, 18)
+        card.addView(explanation)
+
+        val secretInput = EditText(this).apply {
+            hint = "Secret administrateur"
+            setSingleLine(true)
+            inputType = 129
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            setHintTextColor(grey)
+            setPadding(16, 14, 16, 14)
+
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(5, 16, 30))
+                cornerRadius = 14f
+                setStroke(2, blue)
+            }
+        }
+
+        val inputParams = LinearLayout.LayoutParams(-1, -2)
+        inputParams.setMargins(0, 6, 0, 16)
+        card.addView(secretInput, inputParams)
+
+        val submit = makeButton("SE CONNECTER")
+        submit.textSize = 15f
+        submit.minHeight = 56
+
+        val submitParams = LinearLayout.LayoutParams(-1, -2)
+        submitParams.setMargins(0, 4, 0, 10)
+        card.addView(submit, submitParams)
+
+        loginSubmitButton = submit
+
+        submit.setOnClickListener {
+            val secret = secretInput.text.toString()
+
+            if (secret.isBlank()) {
+                secretInput.error = "Le secret administrateur est obligatoire."
+                return@setOnClickListener
+            }
+
+            submit.isEnabled = false
+            submit.text = "CONNEXION EN COURS..."
+
+            login(secret)
+        }
+
+        secretInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                submit.performClick()
+                true
+            } else {
+                false
+            }
+        }
+
+        val securityNote = makeText(
+            "🔒 Accès réservé à l'administrateur FRANKDEV",
+            12f,
+            green,
+            true
+        )
+        securityNote.setPadding(0, 12, 0, 0)
+        card.addView(securityNote)
+
+        val cardParams = LinearLayout.LayoutParams(-1, -2)
+        cardParams.setMargins(0, 25, 0, 18)
+        page.addView(card, cardParams)
+
+        val back = makeButton("← RETOUR")
+        back.setOnClickListener {
+            showDashboard()
+        }
+
+        val backParams = LinearLayout.LayoutParams(-1, -2)
+        backParams.setMargins(0, 8, 0, 8)
+        page.addView(back, backParams)
+
+        val footer = makeText(
+            "SECURITY BY FRANKDEV\n© 2026 FRANKDEV BUILD",
+            11f,
+            cyan
+        )
+        pulse(footer, 0.025f)
+
+        val footerParams = LinearLayout.LayoutParams(-1, -2)
+        footerParams.setMargins(0, 18, 0, 0)
+        page.addView(footer, footerParams)
+
+        body.addView(
+            page,
+            LinearLayout.LayoutParams(-1, -1)
+        )
     }
 
     private fun login(secret: String) {
@@ -533,6 +717,14 @@ class MainActivity : Activity() {
                     adminToken = json.getString("token")
 
                     runOnUiThread {
+                        loginSubmitButton = null
+
+                        statusText.text =
+                            "Administrateur connecté"
+                        statusText.setTextColor(green)
+
+                        showDashboard()
+
                         statusText.text =
                             "Administrateur connecté"
                         statusText.setTextColor(green)
@@ -544,6 +736,11 @@ class MainActivity : Activity() {
                     }
                 } else {
                     runOnUiThread {
+                        loginSubmitButton?.apply {
+                            isEnabled = true
+                            text = "SE CONNECTER"
+                        }
+
                         showMessage(
                             "Connexion refusée",
                             json.optString(
@@ -556,6 +753,11 @@ class MainActivity : Activity() {
 
             } catch (e: Exception) {
                 runOnUiThread {
+                    loginSubmitButton?.apply {
+                        isEnabled = true
+                        text = "SE CONNECTER"
+                    }
+
                     showMessage(
                         "Erreur réseau",
                         e.message ?: "Connexion impossible."
