@@ -870,14 +870,49 @@ override fun onActivityResult(
 }  
 
 // VPN AUTHORIZATION  
-private fun showVpnAuthorizationGranted() {  
-    status.text = "Autorisation accordée — moteur à démarrer"  
+private fun showVpnAuthorizationGranted() {
+    val outbound = getPreferences(MODE_PRIVATE)
+        .getString("imported_vmess_outbound", null)
 
-    Toast.makeText(  
-        this,  
-        "Autorisation VPN accordée",  
-        Toast.LENGTH_SHORT  
-    ).show()  
-}
+    if (outbound.isNullOrBlank()) {
+        status.text = "Aucune configuration importée"
+        Toast.makeText(
+            this,
+            "Importe d'abord une configuration VMess ou VLESS",
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
 
+    try {
+        JSONObject(outbound)
+
+        val intent = Intent(
+            this,
+            FrankVpnService::class.java
+        ).apply {
+            action = FrankVpnService.ACTION_CONNECT
+            putExtra(
+                FrankVpnService.EXTRA_OUTBOUND_JSON,
+                outbound
+            )
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+
+        status.text = "Démarrage du moteur VPN..."
+
+    } catch (e: Exception) {
+        status.text = "Erreur de configuration"
+
+        Toast.makeText(
+            this,
+            e.message ?: "Impossible de démarrer le VPN",
+            Toast.LENGTH_LONG
+        ).show()
+    }
 }
