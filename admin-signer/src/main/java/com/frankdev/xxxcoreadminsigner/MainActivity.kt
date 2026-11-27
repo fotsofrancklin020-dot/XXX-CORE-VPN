@@ -1031,78 +1031,87 @@ class MainActivity : Activity() {
             }
         }.start()
     }
+    
+private fun showClientList(clients: JSONArray) {
+    currentScreen = "clients"
+    body.removeAllViews()
 
-    private fun showClientList(clients: JSONArray) {
-        currentScreen = "clients"
-        body.removeAllViews()
+    val title = makeText(
+        "GESTION DES CLIENTS",
+        22f,
+        cyan,
+        true
+    )
+    pulse(title, 0.035f)
+    body.addView(title)
 
-        val title = makeText(
-            "GESTION DES CLIENTS",
-            22f,
-            cyan,
-            true
+    val back = makeButton("← Retour au tableau de bord")
+    back.setOnClickListener {
+        showDashboard()
+    }
+    body.addView(back)
+
+    if (clients.length() == 0) {
+        body.addView(
+            makeText("Aucun client trouvé.", 15f, Color.WHITE)
         )
-        pulse(title, 0.035f)
-        body.addView(title)
-
-        val back = makeButton("← Retour au tableau de bord")
-        back.setOnClickListener {
-            showDashboard()
-        }
-        body.addView(back)
-
-        if (clients.length() == 0) {
-            body.addView(
-                makeText("Aucun client trouvé.", 15f, Color.WHITE)
-            )
-        }
-
-        for (i in 0 until clients.length()) {
-            val client = clients.getJSONObject(i)
-
-            val id = client.optString("id")
-            val username = client.optString("username")
-            val active = client.optInt("active", 0) == 1
-
-            val stateColor = if (active) blue else red
-
-            val card = makeCard(stateColor)
-
-            val name = makeText(
-                username,
-                18f,
-                Color.WHITE,
-                true
-            )
-            pulse(name, 0.035f)
-            card.addView(name)
-
-            val status = makeText(
-                if (active) "● ACTIF" else "● DÉSACTIVÉ",
-                14f,
-                stateColor,
-                true
-            )
-            pulseStatus(status, 0.055f)
-            card.addView(status)
-
-            val toggle = makeButton(
-                if (active) "Désactiver" else "Activer"
-            )
-
-            toggle.setOnClickListener {
-                changeClientStatus(id, !active)
-            }
-
-            card.addView(toggle)
-
-            val params = LinearLayout.LayoutParams(-1, -2)
-            params.setMargins(0, 9, 0, 9)
-
-            body.addView(card, params)
-        }
+        return
     }
 
+    for (i in 0 until clients.length()) {
+        val client = clients.getJSONObject(i)
+
+        val id = client.optString("id")
+        val username = client.optString("username")
+        val active = client.optInt("active", 0) == 1
+
+        val stateColor = if (active) blue else red
+        val card = makeCard(stateColor)
+
+        val name = makeText(
+            username,
+            18f,
+            Color.WHITE,
+            true
+        )
+        pulse(name, 0.035f)
+        card.addView(name)
+
+        val statusIcon = makeText(
+            if (active) "✓" else "⛔",
+            30f,
+            stateColor,
+            true
+        )
+        pulseStatus(statusIcon, 0.075f)
+        card.addView(statusIcon)
+
+        val statusText = makeText(
+            if (active) "ACTIF" else "DÉSACTIVÉ",
+            15f,
+            stateColor,
+            true
+        )
+        pulseStatus(statusText, 0.055f)
+        card.addView(statusText)
+
+        val toggle = makeButton(
+            if (active) "🔴 Désactiver le client"
+            else "🟢 Activer le client"
+        )
+
+        toggle.setOnClickListener {
+            changeClientStatus(id, !active)
+        }
+
+        card.addView(toggle)
+
+        val params = LinearLayout.LayoutParams(-1, -2)
+        params.setMargins(0, 9, 0, 9)
+
+        body.addView(card, params)
+    }
+}
     private fun loadOnlineClients(disconnectMode: Boolean) {
         if (!requireActiveAdminSession()) return
         val requestToken = adminToken
@@ -1155,128 +1164,147 @@ class MainActivity : Activity() {
             }
         }.start()
     }
+    
+private fun showOnlineClients(
+    clients: JSONArray,
+    disconnectMode: Boolean
+) {
+    currentScreen = "online"
+    body.removeAllViews()
 
-    private fun showOnlineClients(
-        clients: JSONArray,
-        disconnectMode: Boolean
-    ) {
-        currentScreen = "online"
-        body.removeAllViews()
+    val title = makeText(
+        if (disconnectMode) "DÉCONNECTER UN CLIENT"
+        else "CLIENTS EN LIGNE",
+        22f,
+        cyan,
+        true
+    )
+    pulse(title, 0.035f)
+    body.addView(title)
 
-        val title = makeText(
-            if (disconnectMode) "DÉCONNECTER UN CLIENT"
-            else "CLIENTS EN LIGNE",
-            22f,
-            cyan,
+    val count = makeText(
+        "🟢 ${clients.length()} SESSION(S) DÉTECTÉE(S)",
+        14f,
+        green,
+        true
+    )
+    pulseStatus(count, 0.065f)
+    body.addView(count)
+
+    val back = makeButton("← Retour au tableau de bord")
+    back.setOnClickListener {
+        showDashboard()
+    }
+    body.addView(back)
+
+    val refresh = makeButton("↻ Actualiser les connexions")
+    refresh.setOnClickListener {
+        loadOnlineClients(disconnectMode)
+    }
+    body.addView(refresh)
+
+    if (clients.length() == 0) {
+        val emptyIcon = makeText(
+            "⚪",
+            38f,
+            grey,
             true
         )
-        pulse(title, 0.035f)
-        body.addView(title)
+        pulseStatus(emptyIcon)
+        body.addView(emptyIcon)
 
-        val count = makeText(
-            "${clients.length()} session(s) détectée(s)",
-            14f,
+        body.addView(
+            makeText(
+                "AUCUN CLIENT CONNECTÉ",
+                15f,
+                grey,
+                true
+            )
+        )
+        return
+    }
+
+    for (i in 0 until clients.length()) {
+        val client = clients.getJSONObject(i)
+
+        val sessionId = client.optString("session_id")
+        val username = client.optString("username")
+        val connectedAt = client.optLong("connected_at", 0)
+        val lastSeenAt = client.optLong("last_seen_at", 0)
+
+        val card = makeCard(green)
+
+        val name = makeText(
+            username,
+            19f,
+            Color.WHITE,
+            true
+        )
+        pulse(name, 0.035f)
+        card.addView(name)
+
+        val onlineIcon = makeText(
+            "📶",
+            34f,
             green,
             true
         )
-        pulseStatus(count)
-        body.addView(count)
+        pulseStatus(onlineIcon, 0.075f)
+        card.addView(onlineIcon)
 
-        val back = makeButton("← Retour au tableau de bord")
-        back.setOnClickListener {
-            showDashboard()
-        }
-        body.addView(back)
+        val onlineStatus = makeText(
+            "EN LIGNE",
+            15f,
+            green,
+            true
+        )
+        pulseStatus(onlineStatus, 0.065f)
+        card.addView(onlineStatus)
 
-        val refresh = makeButton("↻ Actualiser")
-        refresh.setOnClickListener {
-            loadOnlineClients(disconnectMode)
-        }
-        body.addView(refresh)
-
-        if (clients.length() == 0) {
-            body.addView(
-                makeText(
-                    "Aucun client en ligne pour le moment.",
-                    15f,
-                    Color.WHITE
-                )
+        card.addView(
+            makeText(
+                "🕒 Connecté depuis : ${formatTimestamp(connectedAt)}",
+                12f,
+                Color.LTGRAY
             )
-            return
-        }
+        )
 
-        for (i in 0 until clients.length()) {
-            val client = clients.getJSONObject(i)
-
-            val sessionId = client.optString("session_id")
-            val username = client.optString("username")
-            val connectedAt = client.optLong("connected_at", 0)
-            val lastSeenAt = client.optLong("last_seen_at", 0)
-
-            val card = makeCard(green)
-
-            val name = makeText(
-                username,
-                19f,
-                Color.WHITE,
-                true
+        card.addView(
+            makeText(
+                "⏱ Dernière activité : ${formatTimestamp(lastSeenAt)}",
+                12f,
+                Color.LTGRAY
             )
-            pulse(name, 0.035f)
-            card.addView(name)
+        )
 
-            val onlineStatus = makeText(
-                "● EN LIGNE",
-                14f,
-                green,
-                true
-            )
-            pulseStatus(onlineStatus, 0.065f)
-            card.addView(onlineStatus)
+        if (disconnectMode) {
+            val disconnectButton =
+                makeButton("🔴 Déconnecter ce client")
 
-            card.addView(
-                makeText(
-                    "Connecté depuis : ${formatTimestamp(connectedAt)}",
-                    12f,
-                    Color.LTGRAY
-                )
-            )
-
-            card.addView(
-                makeText(
-                    "Dernière activité : ${formatTimestamp(lastSeenAt)}",
-                    12f,
-                    Color.LTGRAY
-                )
-            )
-
-            if (disconnectMode) {
-                val disconnectButton =
-                    makeButton("Déconnecter ce client")
-
-                disconnectButton.setOnClickListener {
-                    AlertDialog.Builder(this)
-                        .setTitle("Confirmer la déconnexion")
-                        .setMessage(
-                            "Voulez-vous révoquer la session de $username ?"
-                        )
-                        .setPositiveButton("Déconnecter") { _, _ ->
-                            disconnectClient(sessionId, username)
-                        }
-                        .setNegativeButton("Annuler", null)
-                        .show()
-                }
-
-                card.addView(disconnectButton)
+            disconnectButton.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Confirmer la déconnexion")
+                    .setMessage(
+                        "Voulez-vous révoquer la session de $username ?"
+                    )
+                    .setPositiveButton("Déconnecter") { _, _ ->
+                        disconnectClient(sessionId, username)
+                    }
+                    .setNegativeButton("Annuler", null)
+                    .show()
             }
 
-            val params = LinearLayout.LayoutParams(-1, -2)
-            params.setMargins(0, 9, 0, 9)
-
-            body.addView(card, params)
+            card.addView(disconnectButton)
         }
-    }
 
-    private fun disconnectClient(
+        val params = LinearLayout.LayoutParams(-1, -2)
+        params.setMargins(0, 9, 0, 9)
+
+        body.addView(card, params)
+    }
+}
+
+private fun disconnectClient(
         sessionId: String,
         username: String
     ) {
