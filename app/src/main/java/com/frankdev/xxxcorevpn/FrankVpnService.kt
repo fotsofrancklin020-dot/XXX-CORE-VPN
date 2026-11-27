@@ -109,9 +109,6 @@ override fun onStartCommand(
 }
 
     private fun startTunnel(outboundJson: String) {
-        if (starting || instance != null) return
-
-        starting = true
 
         try {
             Log.i(TAG, "Étape 1 : vérification de l'autorisation VPN")
