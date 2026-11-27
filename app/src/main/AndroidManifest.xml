@@ -5,13 +5,13 @@
 
     <application
         android:allowBackup="false"
-        android:label="Cloudflare X-UI Panel"
+        android:label="XXX-CORE-VPN"
         android:usesCleartextTraffic="false"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
-            android:name="com.frankdev.cloudflarexuipanel.MainActivity"
+            android:name="com.frankdev.xxxcorevpn.MainActivity"
             android:exported="true">
 
             <intent-filter>
