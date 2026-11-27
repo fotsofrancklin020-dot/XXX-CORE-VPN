@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.animation.ValueAnimator
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -55,6 +56,17 @@ class MainActivity : Activity() {
 
     private var currentScreen = "dashboard"
     private var pulseCounter = 0
+private val pulseAnimators = java.util.WeakHashMap<View, ValueAnimator>()
+
+private fun stopPulses(view: View) {
+    pulseAnimators.remove(view)?.cancel()
+
+    if (view is ViewGroup) {
+        for (i in 0 until view.childCount) {
+            stopPulses(view.getChildAt(i))
+        }
+    }
+}
     private var loginSubmitButton: Button? = null
 
     private val options = listOf(
@@ -100,30 +112,32 @@ class MainActivity : Activity() {
     }
 
     // ANIMATION LUMINEUSE INDIVIDUELLE
-    private fun pulse(view: View, strength: Float = 0.025f) {
-        pulseCounter++
+private fun pulse(view: View, strength: Float = 0.025f) {
+    pulseAnimators.remove(view)?.cancel()
 
-        val delay = (pulseCounter % 7) * 115L
+    pulseCounter++
+    val delay = (pulseCounter % 7) * 115L
 
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 1250L + (pulseCounter % 4) * 180L
-            startDelay = delay
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.REVERSE
-            interpolator = AccelerateDecelerateInterpolator()
+    val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 1250L + (pulseCounter % 4) * 180L
+        startDelay = delay
+        repeatCount = ValueAnimator.INFINITE
+        repeatMode = ValueAnimator.REVERSE
+        interpolator = AccelerateDecelerateInterpolator()
 
-            addUpdateListener {
-                val value = it.animatedValue as Float
-                val factor = 1f - strength + (strength * value)
+        addUpdateListener {
+            val value = it.animatedValue as Float
+            val factor = 1f - strength + (strength * value)
 
-                view.alpha = 0.88f + (0.12f * value)
-                view.scaleX = factor
-                view.scaleY = factor
-            }
+            view.alpha = 0.88f + (0.12f * value)
+            view.scaleX = factor
+            view.scaleY = factor
         }
-
-        animator.start()
     }
+
+    pulseAnimators[view] = animator
+    animator.start()
+}
 
     private fun pulseStatus(view: View, strength: Float = 0.045f) {
         pulse(view, strength)
@@ -286,7 +300,8 @@ class MainActivity : Activity() {
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         )
 
-        body.removeAllViews()
+        stopPulses(body)
+body.removeAllViews()
 
         val brand = makeText(
             "FRANKDEV BUILD",
@@ -1034,6 +1049,7 @@ class MainActivity : Activity() {
     
 private fun showClientList(clients: JSONArray) {
     currentScreen = "clients"
+    stopPulses(body)
     body.removeAllViews()
 
     val title = makeText(
@@ -1170,6 +1186,7 @@ private fun showOnlineClients(
     disconnectMode: Boolean
 ) {
     currentScreen = "online"
+    stopPulses(body)
     body.removeAllViews()
 
     val title = makeText(
@@ -1476,6 +1493,7 @@ private fun disconnectClient(
 
     private fun showAbout() {
         currentScreen = "about"
+        stopPulses(body)
         body.removeAllViews()
 
         val panel = LinearLayout(this).apply {
