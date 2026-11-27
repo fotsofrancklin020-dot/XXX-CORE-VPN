@@ -131,20 +131,9 @@ async function verifyAdminAccess(
   request: Request,
   env: Env
 ): Promise<boolean> {
-  if (await verifySession(request, env)) {
-    return true;
-  }
-
-  const authorization = request.headers.get("Authorization");
-
-  return Boolean(
-    env.XXXCORE_ADMIN_SECRET &&
-    authorization &&
-    constantTimeEqual(
-      authorization,
-      `Bearer ${env.XXXCORE_ADMIN_SECRET}`
-    )
-  );
+  // Seules les sessions administrateur valides sont acceptées.
+  // Le secret permanent sert uniquement à ouvrir une session.
+  return await verifySession(request, env);
 }
 
 async function requireAdmin(
@@ -566,7 +555,6 @@ export default {
           return json({ error: "Client not found" }, 404);
         }
 
-        // Toutes les opérations sont exécutées dans une transaction D1.
         const results = await env.DB.batch([
           env.DB.prepare(
             `UPDATE client_sessions
@@ -654,24 +642,45 @@ export default {
 
       const clientId = clientStatusMatch[1];
       const active = body.active;
+      const now = Math.floor(Date.now() / 1000);
 
       try {
-        const result = await env.DB.prepare(
-          `UPDATE clients
-           SET active = ?
-           WHERE id = ?`
-        )
-          .bind(active ? 1 : 0, clientId)
-          .run();
+        // Le changement de statut et la révocation des sessions
+        // sont regroupés dans une transaction D1.
+        const statements = [
+          env.DB.prepare(
+            `UPDATE clients
+             SET active = ?
+             WHERE id = ?`
+          ).bind(active ? 1 : 0, clientId),
+        ];
 
-        if (result.meta.changes === 0) {
+        if (!active) {
+          statements.push(
+            env.DB.prepare(
+              `UPDATE client_sessions
+               SET revoked = 1,
+                   disconnected_at = ?
+               WHERE client_id = ?
+                 AND revoked = 0`
+            ).bind(now, clientId)
+          );
+        }
+
+        const results = await env.DB.batch(statements);
+
+        if (results[0].meta.changes === 0) {
           return json({ error: "Client not found" }, 404);
         }
+
+        const revokedSessionCount = !active
+          ? results[1].meta.changes
+          : 0;
 
         await logAdminAction(
           env,
           active ? "CLIENT_ENABLED" : "CLIENT_DISABLED",
-          `Client ${clientId} ${active ? "enabled" : "disabled"}`
+          `Client ${clientId} ${active ? "enabled" : "disabled"}; sessions revoked: ${revokedSessionCount}`
         );
 
         return json({
@@ -680,6 +689,7 @@ export default {
             id: clientId,
             active,
           },
+          revoked_session_count: revokedSessionCount,
         });
       } catch (error) {
         console.error("CLIENT_STATUS_UPDATE_ERROR:", error);
