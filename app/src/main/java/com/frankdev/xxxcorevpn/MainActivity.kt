@@ -915,4 +915,5 @@ private fun showVpnAuthorizationGranted() {
             Toast.LENGTH_LONG
         ).show()
     }
+}    
 }
