@@ -108,24 +108,6 @@ override fun onStartCommand(
     return START_NOT_STICKY
 }
 
-                try {
-                    showForegroundNotification("Préparation du moteur VPN...")
-                    startTunnel(outboundJson)
-                } catch (e: Throwable) {
-                    Log.e(TAG, "ÉCHEC DU DÉMARRAGE VPN", e)
-                    stopTunnel()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    showErrorNotification(
-                        e.message ?: e.javaClass.simpleName
-                    )
-                    stopSelf(startId)
-                }
-            }
-        }
-
-        return START_NOT_STICKY
-    }
-
     private fun startTunnel(outboundJson: String) {
         if (starting || instance != null) return
 
