@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Autorisation Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
 
     <application
         android:allowBackup="false"
@@ -11,12 +12,10 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <!-- Écran des paramètres -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
 
-        <!-- Écran principal -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -28,11 +27,11 @@
 
         </activity>
 
-        <!-- Service VPN Android -->
         <service
             android:name=".FrankVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
-            android:exported="true">
+            android:exported="true"
+            android:foregroundServiceType="systemExempted">
 
             <intent-filter>
                 <action android:name="android.net.VpnService" />
