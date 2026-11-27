@@ -48,34 +48,65 @@ class FrankVpnService : VpnService() {
         return super.onBind(intent)
     }
 
-    override fun onStartCommand(
-        intent: Intent?, flags: Int, startId: Int
-    ): Int {
-        when (intent?.action) {
-            ACTION_DISCONNECT -> {
-                Log.i(TAG, "Déconnexion demandée")
-                stopTunnel()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+override fun onStartCommand(
+    intent: Intent?, flags: Int, startId: Int
+): Int {
+    when (intent?.action) {
+
+        ACTION_DISCONNECT -> {
+            Log.i(TAG, "Déconnexion demandée")
+            stopTunnel()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        ACTION_CONNECT -> {
+            Log.i(TAG, "Demande de connexion reçue")
+
+            if (instance != null || starting) {
+                Log.w(TAG, "Connexion déjà active ou démarrage en cours")
                 return START_NOT_STICKY
             }
 
-            ACTION_CONNECT -> {
-                Log.i(TAG, "Demande de connexion reçue")
+            val outboundJson =
+                intent.getStringExtra(EXTRA_OUTBOUND_JSON)
 
-                if (instance != null || starting) {
-                    Log.w(TAG, "Connexion déjà active ou démarrage en cours")
-                    return START_NOT_STICKY
+            if (outboundJson.isNullOrBlank()) {
+                Log.e(TAG, "Configuration outbound absente")
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
+
+            starting = true
+            showForegroundNotification("Préparation du moteur VPN...")
+
+            Thread({
+                try {
+                    startTunnel(outboundJson)
+
+                } catch (e: Throwable) {
+                    Log.e(TAG, "ÉCHEC DU DÉMARRAGE VPN", e)
+
+                    stopTunnel()
+
+                    runOnServiceMainThread {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        showErrorNotification(
+                            e.message ?: e.javaClass.simpleName
+                        )
+                        stopSelf(startId)
+                    }
+
+                } finally {
+                    starting = false
                 }
+            }, "XXXCORE-VPN-START").start()
+        }
+    }
 
-                val outboundJson =
-                    intent.getStringExtra(EXTRA_OUTBOUND_JSON)
-
-                if (outboundJson.isNullOrBlank()) {
-                    Log.e(TAG, "Configuration outbound absente")
-                    stopSelf(startId)
-                    return START_NOT_STICKY
-                }
+    return START_NOT_STICKY
+}
 
                 try {
                     showForegroundNotification("Préparation du moteur VPN...")
@@ -175,10 +206,6 @@ class FrankVpnService : VpnService() {
                 throw e
             }
 
-        } finally {
-            starting = false
-            Log.i(TAG, "Fin de la procédure de démarrage")
-        }
     }
 
     private fun buildCoreConfig(outboundJson: String): String {
