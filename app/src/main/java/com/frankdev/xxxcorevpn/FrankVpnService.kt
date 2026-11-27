@@ -1,5 +1,7 @@
 package com.frankdev.xxxcorevpn
 
+import android.os.Handler
+import android.os.Looper
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -466,15 +468,18 @@ override fun onStartCommand(
         connection = null
     }
 
-    override fun onDestroy() {
-        Log.i(TAG, "Service VPN détruit")
-
-        stopTunnel()
-
-        super.onDestroy()
-    }
+private fun runOnServiceMainThread(action: () -> Unit) {
+    Handler(Looper.getMainLooper()).post(action)
 }
 
+override fun onDestroy() {
+    Log.i(TAG, "Service VPN détruit")
+
+    stopTunnel()
+
+    super.onDestroy()
+}
+    
 private inline fun RoutePrefixIterator.forEach(
     block: (RoutePrefix) -> Unit
 ) {
