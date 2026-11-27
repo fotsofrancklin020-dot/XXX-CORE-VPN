@@ -1166,6 +1166,73 @@ private fun showClientList(clients: JSONArray) {
         body.addView(card, params)
     }
 }
+
+private fun deleteClient(id: String, username: String) {
+    if (!requireActiveAdminSession()) return
+
+    if (!Regex(
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    ).matches(id)) {
+        showMessage(
+            "Erreur",
+            "Identifiant du client invalide."
+        )
+        return
+    }
+
+    val requestToken = adminToken
+
+    Thread {
+        var connection: HttpURLConnection? = null
+
+        try {
+            connection = URL(
+                "$workerUrl/admin/clients/$id"
+            ).openConnection() as HttpURLConnection
+
+            connection.requestMethod = "DELETE"
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
+
+            connection.setRequestProperty(
+                "Authorization",
+                "Bearer $requestToken"
+            )
+
+            val response = readResponse(connection)
+            val json = JSONObject(response)
+
+            if (connection.responseCode !in 200..299) {
+                throw Exception(
+                    json.optString(
+                        "error",
+                        "La suppression a échoué."
+                    )
+                )
+            }
+
+            runOnUiThread {
+                showMessage(
+                    "Client supprimé",
+                    "Le compte $username, ses sessions et ses configurations ont été supprimés du serveur."
+                )
+
+                loadClients("all")
+            }
+
+        } catch (e: Exception) {
+            runOnUiThread {
+                showMessage(
+                    "Suppression impossible",
+                    e.message ?: "Erreur réseau."
+                )
+            }
+        } finally {
+            connection?.disconnect()
+        }
+    }.start()
+}
+
     private fun loadOnlineClients(disconnectMode: Boolean) {
         if (!requireActiveAdminSession()) return
         val requestToken = adminToken
