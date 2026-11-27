@@ -1,461 +1,883 @@
-
-package com.frankdev.cloudflarexuipanel
+package com.frankdev.xxxcorevpn
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
+import android.net.VpnService
 import android.os.Bundle
-import android.graphics.Color
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import org.json.JSONObject
-import org.json.JSONArray
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : Activity() {
 
-    private val blue = Color.rgb(0, 170, 255)
-    private val backgroundColor = Color.rgb(8, 13, 25)
-    private val workerUrl =
-        "https://frankdev-xxxcore-server.fotsofrancklin020.workers.dev"
-
-    private var adminToken: String? = null
-    private lateinit var clientContainer: LinearLayout
-    private lateinit var statusText: TextView
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        window.statusBarColor = backgroundColor
-        window.navigationBarColor = backgroundColor
-
-        showDashboard()
-    }
-
-    private fun showDashboard() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 30, 24, 24)
-            setBackgroundColor(backgroundColor)
-        }
-
-        val scroll = ScrollView(this)
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        val brand = TextView(this).apply {
-            text = "FRANKDEV BUILD"
-            textSize = 15f
-            setTextColor(blue)
-            gravity = Gravity.CENTER
-        }
-
-        val title = TextView(this).apply {
-            text = "\nCLOUDFLARE\nX-UI PANEL"
-            textSize = 29f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-        }
-
-        val subtitle = TextView(this).apply {
-            text = "\nADMINISTRATOR DASHBOARD\n"
-            textSize = 13f
-            setTextColor(blue)
-            gravity = Gravity.CENTER
-        }
-
-        statusText = TextView(this).apply {
-            text = "Serveur : non connecté"
-            textSize = 13f
-            setTextColor(Color.YELLOW)
-            gravity = Gravity.CENTER
-        }
-
-        content.addView(brand)
-        content.addView(title)
-        content.addView(subtitle)
-        content.addView(statusText)
-
-        val options = listOf(
-            "Administrator Login",
-            "Dashboard",
-            "Create Client",
-            "All Clients",
-            "Active Clients",
-            "Disabled Clients",
-            "Online Clients",
-            "Disconnect Client",
-            "Subscription Manager",
-            "Data Usage / Traffic Monitor",
-            "Set Data Limit",
-            "Set Expiration Date",
-            "Renew Subscription",
-            "Protocol Management",
-            "Default Mode Management",
-            "Server Management",
-            "Connection History",
-            "Notifications",
-            "Admin Security",
-            "Backup & Restore",
-            "About Info"
-        )
-
-        for (option in options) {
-            val button = Button(this).apply {
-                text = option
-                textSize = 14f
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.rgb(18, 42, 70))
-                isAllCaps = false
-
-                setOnClickListener {
-                    when (option) {
-                        "Administrator Login" -> showLoginDialog()
-                        "All Clients" -> loadClients("all")
-                        "Active Clients" -> loadClients("active")
-                        "Disabled Clients" -> loadClients("disabled")
-                        else -> showMessage(option)
-                    }
-                }
-            }
-
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.setMargins(0, 7, 0, 7)
-            content.addView(button, params)
-        }
-
-        clientContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 16, 0, 16)
-        }
-
-        content.addView(clientContainer)
-
-        val footer = TextView(this).apply {
-            text = "\nSECURITY BY FRANKDEV\n© 2026 FRANKDEV BUILD"
-            textSize = 12f
-            setTextColor(blue)
-            gravity = Gravity.CENTER
-        }
-
-        content.addView(footer)
-        scroll.addView(content)
-        root.addView(scroll)
-        setContentView(root)
-    }
-
-    private fun showLoginDialog() {
-        val input = EditText(this).apply {
-            hint = "Secret administrateur"
-            inputType =
-                InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_PASSWORD
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("FRANKDEV ADMIN LOGIN")
-            .setMessage("Authentification administrateur")
-            .setView(input)
-            .setPositiveButton("CONNEXION") { _, _ ->
-                val secret = input.text.toString()
-
-                if (secret.isBlank()) {
-                    showMessage("Secret administrateur obligatoire")
-                } else {
-                    login(secret)
-                }
-            }
-            .setNegativeButton("ANNULER", null)
-            .show()
-    }
-
-    private fun login(secret: String) {
-        statusText.text = "Connexion au serveur..."
-
-        Thread {
-            try {
-                val body = JSONObject()
-                    .put("adminSecret", secret)
-                    .toString()
-
-                val response = callApi(
-                    "POST",
-                    "/admin/login",
-                    body,
-                    null
-                )
-
-                val result = JSONObject(response)
-
-                if (result.optString("status") == "authenticated") {
-                    adminToken = result.getString("token")
-
-                    runOnUiThread {
-                        statusText.text = "Administrateur connecté"
-                        statusText.setTextColor(Color.GREEN)
-                        showMessage("Authentification réussie.")
-                    }
-                } else {
-                    runOnUiThread {
-                        statusText.text = "Connexion refusée"
-                        statusText.setTextColor(Color.RED)
-                        showMessage(
-                            result.optString(
-                                "error",
-                                "Authentification refusée"
-                            )
-                        )
-                    }
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    statusText.text = "Erreur de connexion"
-                    showMessage(error.message ?: "Erreur serveur")
-                }
-            }
-        }.start()
-    }
-
-    private fun loadClients(filter: String) {
-        val token = adminToken
-
-        if (token.isNullOrBlank()) {
-            showLoginDialog()
-            return
-        }
-
-        statusText.text = "Chargement des clients..."
-        clientContainer.removeAllViews()
-
-        Thread {
-            try {
-                val response = callApi(
-                    "GET",
-                    "/admin/clients",
-                    null,
-                    token
-                )
-
-                val result = JSONObject(response)
-
-                if (result.optString("status") != "ok") {
-                    throw Exception(
-                        result.optString("error", "Erreur API")
-                    )
-                }
-
-                val clients = result.getJSONArray("clients")
-
-                runOnUiThread {
-                    displayClients(clients, filter)
-                    statusText.text = "Serveur : connecté"
-                    statusText.setTextColor(Color.GREEN)
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    statusText.text = "Erreur serveur"
-                    statusText.setTextColor(Color.RED)
-                    showMessage(error.message ?: "Erreur inconnue")
-                }
-            }
-        }.start()
-    }
-
-    private fun displayClients(
-        clients: JSONArray,
-        filter: String
-    ) {
-        clientContainer.removeAllViews()
-
-        val heading = TextView(this).apply {
-            text = "GESTION DES COMPTES CLIENTS"
-            textSize = 17f
-            setTextColor(blue)
-            gravity = Gravity.CENTER
-        }
-
-        clientContainer.addView(heading)
-
-        var displayed = 0
-
-        for (i in 0 until clients.length()) {
-            val client = clients.getJSONObject(i)
-
-            val id = client.optString("id")
-            val username = client.optString("username")
-            val active = client.optInt("active") == 1
-
-            if (filter == "active" && !active) continue
-            if (filter == "disabled" && active) continue
-
-            displayed++
-
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(14, 14, 14, 14)
-                setBackgroundColor(Color.rgb(18, 32, 52))
-            }
-
-            val name = TextView(this).apply {
-                text = "Client : $username"
-                textSize = 17f
-                setTextColor(Color.WHITE)
-            }
-
-            val state = TextView(this).apply {
-                text = if (active) "STATUT : ACTIF" else "STATUT : DÉSACTIVÉ"
-                textSize = 13f
-                setTextColor(
-                    if (active) Color.GREEN else Color.RED
-                )
-            }
-
-            val action = Button(this).apply {
-                text = if (active) "DÉSACTIVER" else "ACTIVER"
-                isAllCaps = false
-                setOnClickListener {
-                    updateClientStatus(id, !active)
-                }
-            }
-
-            card.addView(name)
-            card.addView(state)
-            card.addView(action)
-
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.setMargins(0, 10, 0, 10)
-
-            clientContainer.addView(card, params)
-        }
-
-        if (displayed == 0) {
-            val empty = TextView(this).apply {
-                text = "Aucun client dans cette catégorie."
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-            }
-            clientContainer.addView(empty)
-        }
-    }
-
-    private fun updateClientStatus(
-        clientId: String,
-        active: Boolean
-    ) {
-        val token = adminToken ?: return
-
-        statusText.text = "Mise à jour du compte..."
-
-        Thread {
-            try {
-                val body = JSONObject()
-                    .put("active", active)
-                    .toString()
-
-                val response = callApi(
-                    "PATCH",
-                    "/admin/clients/$clientId/status",
-                    body,
-                    token
-                )
-
-                val result = JSONObject(response)
-
-                if (result.optString("status") != "updated") {
-                    throw Exception(
-                        result.optString(
-                            "error",
-                            "Modification refusée"
-                        )
-                    )
-                }
-
-                runOnUiThread {
-                    statusText.text = "Modification réussie"
-                    showMessage(
-                        if (active) {
-                            "Compte client activé."
-                        } else {
-                            "Compte client désactivé."
-                        }
-                    )
-
-                    loadClients("all")
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    statusText.text = "Erreur de modification"
-                    showMessage(error.message ?: "Erreur inconnue")
-                }
-            }
-        }.start()
-    }
-
-    private fun callApi(
-        method: String,
-        path: String,
-        body: String?,
-        token: String?
-    ): String {
-        val connection = URL(workerUrl + path)
-            .openConnection() as HttpURLConnection
-
-        try {
-            connection.requestMethod = method
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.setRequestProperty(
-                "Content-Type",
-                "application/json"
-            )
-
-            if (token != null) {
-                connection.setRequestProperty(
-                    "Authorization",
-                    "Bearer $token"
-                )
-            }
-
-            if (body != null) {
-                connection.doOutput = true
-                connection.outputStream.use {
-                    it.write(body.toByteArray(Charsets.UTF_8))
-                }
-            }
-
-            val stream =
-                if (connection.responseCode in 200..299) {
-                    connection.inputStream
-                } else {
-                    connection.errorStream
-                }
-
-            return stream.bufferedReader().use {
-                it.readText()
-            }
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun showMessage(message: String) {
-        AlertDialog.Builder(this)
-            .setTitle("FRANKDEV BUILD")
-            .setMessage(message)
-            .setPositiveButton("OK", null)
-            .show()
-    }
+private val vpnRequestCode = 1001  
+private val configRequestCode = 1002  
+private val exportRequestCode = 1003  
+
+private var pendingExportContent: String? = null  
+
+private lateinit var subscriptionUrl: EditText  
+private lateinit var udpServer: EditText  
+private lateinit var udpUsername: EditText  
+private lateinit var udpPassword: EditText  
+private lateinit var udpSni: EditText  
+private lateinit var status: TextView  
+
+private var shouldRefreshTheme = false  
+
+override fun onResume() {  
+    super.onResume()  
+
+    if (shouldRefreshTheme) {  
+        shouldRefreshTheme = false  
+        recreate()  
+    }  
+}  
+
+override fun onCreate(savedInstanceState: Bundle?) {  
+    super.onCreate(savedInstanceState)  
+
+    val prefs = getPreferences(MODE_PRIVATE)  
+
+    val themePrefs = getSharedPreferences(  
+        "xxx_core_prefs",  
+        MODE_PRIVATE  
+    )  
+
+    val rootLayout = FrameLayout(this)  
+
+    // DRAWER  
+    val drawerLayout = LinearLayout(this).apply {  
+        orientation = LinearLayout.VERTICAL  
+        setPadding(24, 24, 24, 24)  
+        setBackgroundColor(  
+            android.graphics.Color.rgb(18, 18, 24)  
+        )  
+    }  
+
+    // DASHBOARD  
+    val layout = LinearLayout(this).apply {  
+        orientation = LinearLayout.VERTICAL  
+        gravity = Gravity.CENTER  
+        setPadding(32, 32, 32, 32)  
+    }  
+
+    // THEMES  
+    val selectedTheme = themePrefs.getInt("selected_theme", 1)  
+
+    val backgroundColor: Int  
+    val accentColor: Int  
+    val textColor: Int  
+
+    when (selectedTheme) {  
+        0 -> {  
+            backgroundColor = android.graphics.Color.WHITE  
+            accentColor = android.graphics.Color.BLUE  
+            textColor = android.graphics.Color.BLACK  
+        }  
+
+        1 -> {  
+            backgroundColor = android.graphics.Color.rgb(18, 18, 24)  
+            accentColor = android.graphics.Color.rgb(190, 120, 255)  
+            textColor = android.graphics.Color.WHITE  
+        }  
+
+        2 -> {  
+            backgroundColor = android.graphics.Color.BLACK  
+            accentColor = android.graphics.Color.rgb(0, 190, 255)  
+            textColor = android.graphics.Color.WHITE  
+        }  
+
+        else -> {  
+            backgroundColor = android.graphics.Color.BLACK  
+            accentColor = android.graphics.Color.rgb(230, 190, 70)  
+            textColor = android.graphics.Color.WHITE  
+        }  
+    }  
+
+    // DRAWER LOGO  
+    val drawerLogo = ImageView(this).apply {  
+        setImageResource(R.drawable.xxx_core_logo)  
+        scaleType = ImageView.ScaleType.FIT_CENTER  
+        adjustViewBounds = true  
+        setPadding(8, 16, 8, 8)  
+    }  
+
+    drawerLayout.addView(  
+        drawerLogo,  
+        LinearLayout.LayoutParams(  
+            LinearLayout.LayoutParams.MATCH_PARENT,  
+            (220 * resources.displayMetrics.density).toInt()  
+        )  
+    )  
+
+    // BRAND  
+    val drawerBrand = TextView(this).apply {  
+        text = "XXX-CORE VPN\nFRANKDEV BUILD"  
+        textSize = 20f  
+        gravity = Gravity.CENTER  
+        setTextColor(android.graphics.Color.rgb(0, 190, 255))  
+        setPadding(0, 8, 0, 24)  
+    }  
+
+    drawerLayout.addView(drawerBrand)  
+
+    fun styleDrawerButton(button: Button, icon: Int) {  
+        button.textSize = 16f  
+        button.setCompoundDrawablesWithIntrinsicBounds(  
+            icon, 0, 0, 0  
+        )  
+        button.compoundDrawablePadding = 16  
+        button.gravity = Gravity.CENTER  
+    }  
+
+    // CUSTOM SERVER  
+    val customServerButton = Button(this).apply {  
+        text = "Custom Server"  
+        styleDrawerButton(this, android.R.drawable.ic_menu_edit)  
+
+        setOnClickListener {  
+            Toast.makeText(  
+                this@MainActivity,  
+                "Custom Server",  
+                Toast.LENGTH_SHORT  
+            ).show()  
+        }  
+    }  
+
+    drawerLayout.addView(customServerButton)  
+
+    // THEME SETTINGS  
+    val themeSettingsButton = Button(this).apply {  
+        text = "Theme Settings"  
+        styleDrawerButton(this, android.R.drawable.ic_menu_preferences)  
+
+        setOnClickListener {  
+            startActivity(  
+                Intent(  
+                    this@MainActivity,  
+                    SettingsActivity::class.java  
+                )  
+            )  
+        }  
+    }  
+
+    drawerLayout.addView(themeSettingsButton)  
+
+    // APP SETTINGS  
+    val appSettingsButton = Button(this).apply {  
+        text = "App Settings"  
+        styleDrawerButton(this, android.R.drawable.ic_menu_manage)  
+
+        setOnClickListener {  
+            startActivity(  
+                Intent(  
+                    this@MainActivity,  
+                    SettingsActivity::class.java  
+                )  
+            )  
+        }  
+    }  
+
+    drawerLayout.addView(appSettingsButton)  
+
+    // OTHER DRAWER OPTIONS  
+    fun addDrawerOption(label: String, icon: Int) {  
+        val optionButton = Button(this).apply {  
+            text = label  
+            styleDrawerButton(this, icon)  
+
+            setOnClickListener {  
+                when (label) {  
+                    "Import Config" -> showImportOptionsDialog()  
+
+                    "Export Config" -> {  
+                        startActivity(  
+                            Intent(  
+                                this@MainActivity,  
+                                ExportConfigActivity::class.java  
+                            )  
+                        )  
+                    }  
+
+                    else -> Toast.makeText(  
+                        this@MainActivity,  
+                        "$label sera configuré dans une prochaine étape",  
+                        Toast.LENGTH_SHORT  
+                    ).show()  
+                }  
+            }  
+        }  
+
+        drawerLayout.addView(optionButton)  
+    }  
+
+    addDrawerOption("V2ray Settings", android.R.drawable.ic_menu_share)  
+    addDrawerOption("OpenVPN Settings", android.R.drawable.ic_lock_lock)  
+    addDrawerOption("Mobile IP Hunter", android.R.drawable.ic_menu_mylocation)  
+    addDrawerOption("SlowDns Checker", android.R.drawable.ic_menu_search)  
+    addDrawerOption("Beginner Tutorial", android.R.drawable.ic_menu_help)  
+    addDrawerOption("Hotspot Share", android.R.drawable.ic_menu_upload)  
+    addDrawerOption("IP Address Checker", android.R.drawable.ic_menu_info_details)  
+    addDrawerOption("HostName Finder", android.R.drawable.ic_menu_compass)  
+    addDrawerOption("HWID", android.R.drawable.ic_menu_view)  
+    addDrawerOption("Export Config", android.R.drawable.ic_menu_save)  
+    addDrawerOption("Import Config", android.R.drawable.ic_menu_add)  
+    addDrawerOption("Import Cloud Config", android.R.drawable.ic_menu_upload)  
+    addDrawerOption("Import QR Code Config", android.R.drawable.ic_menu_camera)  
+    addDrawerOption("Host Checker", android.R.drawable.ic_menu_directions)  
+    addDrawerOption("Telegram Group", android.R.drawable.ic_menu_send)  
+    addDrawerOption("Optimize Battery", android.R.drawable.ic_menu_manage)  
+    addDrawerOption("About Info", android.R.drawable.ic_menu_info_details)  
+
+    // DRAWER SCROLL  
+    val drawerScrollView = ScrollView(this).apply {  
+        isFillViewport = true  
+        visibility = View.GONE  
+        clipToPadding = false  
+    }  
+
+    drawerScrollView.addView(  
+        drawerLayout,  
+        FrameLayout.LayoutParams(  
+            FrameLayout.LayoutParams.MATCH_PARENT,  
+            FrameLayout.LayoutParams.WRAP_CONTENT  
+        )  
+    )  
+
+    // MENU BUTTON  
+    val menuButton = Button(this).apply {  
+        text = "☰"  
+        textSize = 24f  
+
+        setOnClickListener {  
+            drawerScrollView.visibility =  
+                if (drawerScrollView.visibility == View.VISIBLE) {  
+                    View.GONE  
+                } else {  
+                    View.VISIBLE  
+                }  
+        }  
+    }  
+
+    // TITLE  
+    val title = TextView(this).apply {  
+        text = "XXX-CORE VPN"  
+        textSize = 28f  
+        gravity = Gravity.CENTER  
+        setTextColor(accentColor)  
+    }  
+
+    // VPN STATUS  
+    status = TextView(this).apply {  
+        text = "VPN déconnecté"  
+        textSize = 16f  
+        gravity = Gravity.CENTER  
+        setTextColor(textColor)  
+    }  
+
+    // CONNECT BUTTON  
+    val connectButton = Button(this).apply {  
+        text = "CONNECTER"  
+
+        setOnClickListener {  
+            val vpnIntent = VpnService.prepare(this@MainActivity)  
+
+            if (vpnIntent != null) {  
+                startActivityForResult(vpnIntent, vpnRequestCode)  
+            } else {  
+                showVpnAuthorizationGranted()  
+            }  
+        }  
+    }  
+
+    // SETTINGS BUTTON  
+    val settingsButton = Button(this).apply {  
+        text = "⚙ PARAMÈTRES"  
+
+        setOnClickListener {  
+            shouldRefreshTheme = true  
+
+            startActivity(  
+                Intent(  
+                    this@MainActivity,  
+                    SettingsActivity::class.java  
+                )  
+            )  
+        }  
+    }  
+
+    // SUBSCRIPTION  
+    subscriptionUrl = EditText(this).apply {  
+        hint = "Lien d'abonnement HTTP/HTTPS"  
+        setSingleLine(true)  
+        setText(prefs.getString("subscription_url", ""))  
+    }  
+
+    val saveSubscription = Button(this).apply {  
+        text = "ENREGISTRER L'ABONNEMENT"  
+
+        setOnClickListener {  
+            val url = subscriptionUrl.text.toString().trim()  
+            val uri = Uri.parse(url)  
+
+            if (  
+                (uri.scheme == "https" || uri.scheme == "http") &&  
+                !uri.host.isNullOrBlank()  
+            ) {  
+                prefs.edit()  
+                    .putString("subscription_url", url)  
+                    .apply()  
+
+                Toast.makeText(  
+                    this@MainActivity,  
+                    "Abonnement enregistré",  
+                    Toast.LENGTH_SHORT  
+                ).show()  
+            } else {  
+                Toast.makeText(  
+                    this@MainActivity,  
+                    "Lien invalide",  
+                    Toast.LENGTH_LONG  
+                ).show()  
+            }  
+        }  
+    }  
+
+    // UDP CUSTOM  
+    val udpTitle = TextView(this).apply {  
+        text = "UDP CUSTOM"  
+        textSize = 22f  
+        gravity = Gravity.CENTER  
+    }  
+
+    udpServer = EditText(this).apply {  
+        hint = "Server host:port"  
+        setSingleLine(true)  
+        setText(prefs.getString("udp_server", ""))  
+    }  
+
+    udpUsername = EditText(this).apply {  
+        hint = "Username"  
+        setSingleLine(true)  
+        setText(prefs.getString("udp_username", ""))  
+    }  
+
+    udpPassword = EditText(this).apply {  
+        hint = "Password"  
+        inputType = InputType.TYPE_CLASS_TEXT or  
+            InputType.TYPE_TEXT_VARIATION_PASSWORD  
+        setSingleLine(true)  
+        setText(prefs.getString("udp_password", ""))  
+    }  
+
+    udpSni = EditText(this).apply {  
+        hint = "SNI (facultatif)"  
+        setSingleLine(true)  
+        setText(prefs.getString("udp_sni", ""))  
+    }  
+
+    val saveUdp = Button(this).apply {  
+        text = "ENREGISTRER UDP CUSTOM"  
+
+        setOnClickListener {  
+            val server = udpServer.text.toString().trim()  
+            val username = udpUsername.text.toString().trim()  
+            val password = udpPassword.text.toString()  
+
+            if (  
+                server.isBlank() ||  
+                !server.contains(":") ||  
+                server.contains(" ") ||  
+                username.isBlank() ||  
+                password.isBlank()  
+            ) {  
+                Toast.makeText(  
+                    this@MainActivity,  
+                    "Vérifie le serveur et les identifiants",  
+                    Toast.LENGTH_LONG  
+                ).show()  
+
+                return@setOnClickListener  
+            }  
+
+            prefs.edit()  
+                .putString("udp_server", server)  
+                .putString("udp_username", username)  
+                .putString("udp_password", password)  
+                .putString("udp_sni", udpSni.text.toString().trim())  
+                .apply()  
+
+            Toast.makeText(  
+                this@MainActivity,  
+                "Configuration UDP enregistrée",  
+                Toast.LENGTH_SHORT  
+            ).show()  
+        }  
+    }  
+
+    // DASHBOARD ELEMENTS  
+    layout.addView(menuButton)  
+    layout.addView(title)  
+    layout.addView(status)  
+    layout.addView(connectButton)  
+    layout.addView(settingsButton)  
+    layout.addView(subscriptionUrl)  
+    layout.addView(saveSubscription)  
+    layout.addView(udpTitle)  
+    layout.addView(udpServer)  
+    layout.addView(udpUsername)  
+    layout.addView(udpPassword)  
+    layout.addView(udpSni)  
+    layout.addView(saveUdp)  
+
+    layout.setBackgroundColor(backgroundColor)  
+
+    rootLayout.addView(  
+        layout,  
+        FrameLayout.LayoutParams(  
+            FrameLayout.LayoutParams.MATCH_PARENT,  
+            FrameLayout.LayoutParams.MATCH_PARENT  
+        )  
+    )  
+
+    val drawerParams = FrameLayout.LayoutParams(  
+        (280 * resources.displayMetrics.density).toInt(),  
+        FrameLayout.LayoutParams.MATCH_PARENT,  
+        Gravity.START  
+    )  
+
+    rootLayout.addView(drawerScrollView, drawerParams)  
+
+    setContentView(rootLayout)  
+}  
+
+// IMPORT CONFIG OPTIONS  
+private fun showImportOptionsDialog() {  
+    val options = arrayOf(  
+        "VMess / VLESS Link",  
+        "XXXCORE File"  
+    )  
+
+    AlertDialog.Builder(this)  
+        .setTitle("IMPORT CONFIG")  
+        .setItems(options) { _, which ->  
+            when (which) {  
+                0 -> showLinkImportDialog()  
+                1 -> openConfigPicker()  
+            }  
+        }  
+        .setNegativeButton("Annuler", null)  
+        .show()  
+}  
+
+// IMPORT VMESS / VLESS LINK  
+private fun showLinkImportDialog() {  
+    val linkInput = EditText(this).apply {  
+        hint = "Colle ton lien vmess:// ou vless://"  
+        inputType = InputType.TYPE_CLASS_TEXT or  
+            InputType.TYPE_TEXT_FLAG_MULTI_LINE  
+        minLines = 4  
+        setPadding(24, 16, 24, 16)  
+    }  
+
+    val dialog = AlertDialog.Builder(this)  
+        .setTitle("IMPORT VMess / VLESS")  
+        .setView(linkInput)  
+        .setPositiveButton("Importer", null)  
+        .setNegativeButton("Annuler", null)  
+        .create()  
+
+    dialog.setOnShowListener {  
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)  
+            .setOnClickListener {  
+                val link = linkInput.text.toString().trim()  
+
+                try {  
+                    require(link.isNotBlank()) {  
+                        "Colle un lien avant de continuer."  
+                    }  
+
+                    when {  
+                        link.startsWith("vmess://", true) -> {  
+                            val config = VmessLinkParser.parse(link)  
+
+                            val outbound =  
+                                VmessLinkParser.toSingBoxOutboundJson(config)  
+
+                            val configName = config.name.ifBlank {  
+                                "${config.server}:${config.port}"  
+                            }  
+
+                            getPreferences(MODE_PRIVATE).edit()  
+                                .putString(  
+                                    "imported_vmess_outbound",  
+                                    outbound.toString(2)  
+                                )  
+                                .putString(  
+                                    "imported_vmess_name",  
+                                    configName  
+                                )  
+                                .apply()  
+
+                            dialog.dismiss()  
+                            showImportedConfig(config)  
+                        }  
+
+                        link.startsWith("vless://", true) -> {  
+                            val outbound = VlessLinkParser.parse(link)  
+
+                            val configName =  
+                                VlessLinkParser.getName(link).ifBlank {  
+                                    "${outbound.getString("server")}:" +  
+                                        outbound.getInt("server_port")  
+                                }  
+
+                            getPreferences(MODE_PRIVATE).edit()  
+                                .putString(  
+                                    "imported_vmess_outbound",  
+                                    outbound.toString(2)  
+                                )  
+                                .putString(  
+                                    "imported_vmess_name",  
+                                    configName  
+                                )  
+                                .apply()  
+
+                            dialog.dismiss()  
+
+                            AlertDialog.Builder(this)  
+                                .setTitle("Configuration VLESS importée")  
+                                .setMessage(  
+                                    "Nom : $configName\n\n" +  
+                                        "Protocole : VLESS\n" +  
+                                        "Serveur : ${outbound.getString("server")}\n" +  
+                                        "Port : ${outbound.getInt("server_port")}\n\n" +  
+                                        "Configuration enregistrée localement."  
+                                )  
+                                .setPositiveButton("OK", null)  
+                                .show()  
+
+                            Toast.makeText(  
+                                this,  
+                                "Importation VLESS réussie",  
+                                Toast.LENGTH_SHORT  
+                            ).show()  
+                        }  
+
+                        else -> {  
+                            throw IllegalArgumentException(  
+                                "Lien non reconnu. Utilise vmess:// ou vless://."  
+                            )  
+                        }  
+                    }  
+
+                } catch (e: Exception) {  
+                    Toast.makeText(  
+                        this,  
+                        e.message ?: "Échec de l'importation.",  
+                        Toast.LENGTH_LONG  
+                    ).show()  
+                }  
+            }  
+    }  
+
+    dialog.show()  
+}  
+
+// OPEN ANDROID FILE PICKER  
+private fun openConfigPicker() {  
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {  
+        addCategory(Intent.CATEGORY_OPENABLE)  
+        type = "*/*"  
+        putExtra(  
+            Intent.EXTRA_MIME_TYPES,  
+            arrayOf(  
+                "application/json",  
+                "text/plain",  
+                "application/octet-stream"  
+            )  
+        )  
+    }  
+
+    try {  
+        startActivityForResult(intent, configRequestCode)  
+    } catch (e: Exception) {  
+        Toast.makeText(  
+            this,  
+            "Impossible d'ouvrir les fichiers.",  
+            Toast.LENGTH_LONG  
+        ).show()  
+    }  
+}  
+
+// READ AND IMPORT XXXCORE FILE  
+private fun importSelectedConfig(uri: Uri) {  
+    try {  
+        val content = contentResolver.openInputStream(uri)  
+            ?.bufferedReader(Charsets.UTF_8)  
+            ?.use { it.readText() }  
+            ?: throw IllegalArgumentException(  
+                "Impossible de lire ce fichier."  
+            )  
+
+        require(content.isNotBlank()) {  
+            "Le fichier est vide."  
+        }  
+
+        // Vérification obligatoire de la signature et de l'expiration.  
+        XxxCoreSignatureVerifier.verify(content)  
+
+        val envelope = JSONObject(content)  
+
+        if (envelope.optBoolean("encrypted", false)) {  
+            showXxxCorePasswordDialog(content)  
+        } else {  
+            completeXxxCoreImport(content, null)  
+        }  
+
+    } catch (e: Exception) {  
+        showImportError(  
+            e.message ?: "Fichier XXXCORE invalide."  
+        )  
+    }  
+}  
+
+// XXXCORE PASSWORD DIALOG  
+private fun showXxxCorePasswordDialog(content: String) {  
+    val passwordInput = EditText(this).apply {  
+        hint = "Mot de passe du fichier"  
+        inputType = InputType.TYPE_CLASS_TEXT or  
+            InputType.TYPE_TEXT_VARIATION_PASSWORD  
+        setSingleLine(true)  
+    }  
+
+    val dialog = AlertDialog.Builder(this)  
+        .setTitle("Fichier XXXCORE protégé")  
+        .setMessage(  
+            "Entre le mot de passe pour déchiffrer ce fichier."  
+        )  
+        .setView(passwordInput)  
+        .setPositiveButton("Déverrouiller", null)  
+        .setNegativeButton("Annuler", null)  
+        .create()  
+
+    dialog.setOnShowListener {  
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)  
+            .setOnClickListener {  
+                val password = passwordInput.text.toString()  
+
+                if (password.isBlank()) {  
+                    passwordInput.error = "Mot de passe obligatoire"  
+                    return@setOnClickListener  
+                }  
+
+                try {  
+                    completeXxxCoreImport(content, password)  
+                    dialog.dismiss()  
+                } catch (e: Exception) {  
+                    passwordInput.error =  
+                        e.message ?: "Mot de passe incorrect"  
+                }  
+            }  
+    }  
+
+    dialog.show()  
+}  
+
+// RESTORE VERIFIED XXXCORE CONFIG  
+private fun completeXxxCoreImport(  
+    content: String,  
+    password: String?  
+) {  
+    // Revérifier la signature et l'expiration avant restauration.  
+    XxxCoreSignatureVerifier.verify(content)  
+
+    val envelope = JSONObject(content)  
+    val payload = XxxCoreFile.read(content, password)  
+    val expiry = envelope.getLong("expiresAt")  
+
+    val prefs = getPreferences(MODE_PRIVATE)  
+    val editor = prefs.edit()  
+
+    editor.putString(  
+        "subscription_url",  
+        payload.optString("subscription_url", "")  
+    )  
+
+    editor.putString(  
+        "imported_vmess_outbound",  
+        payload.optString("imported_vmess_outbound", "")  
+    )  
+
+    editor.putString(  
+        "imported_vmess_name",  
+        payload.optString("imported_vmess_name", "")  
+    )  
+
+    editor.putString(  
+        "expiry_date",  
+        payload.optString("expiry_date", "")  
+    )  
+
+    editor.putLong("xxxcore_expires_at", expiry)  
+
+    val protextras = payload.optJSONObject("protextras")  
+    if (protextras != null) {  
+        editor.putString("protextras", protextras.toString())  
+    }  
+
+    if (payload.has("udp_server")) {  
+        editor.putString(  
+            "udp_server",  
+            payload.optString("udp_server")  
+        )  
+        editor.putString(  
+            "udp_username",  
+            payload.optString("udp_username")  
+        )  
+        editor.putString(  
+            "udp_password",  
+            payload.optString("udp_password")  
+        )  
+        editor.putString(  
+            "udp_sni",  
+            payload.optString("udp_sni")  
+        )  
+    }  
+
+    // Enregistrer les données seulement après validation complète.  
+    editor.apply()  
+
+    subscriptionUrl.setText(  
+        payload.optString("subscription_url", "")  
+    )  
+
+    if (payload.has("udp_server")) {  
+        udpServer.setText(payload.optString("udp_server"))  
+        udpUsername.setText(payload.optString("udp_username"))  
+        udpPassword.setText(payload.optString("udp_password"))  
+        udpSni.setText(payload.optString("udp_sni"))  
+    }  
+
+    AlertDialog.Builder(this)  
+        .setTitle("XXXCORE importé avec succès")  
+        .setMessage(  
+            "Configuration vérifiée et enregistrée.\n\n" +  
+                "Nom : ${payload.optString("imported_vmess_name", "Sans nom")}\n" +  
+                "Expiration : ${payload.optString("expiry_date", "Non précisée")}\n\n" +  
+                "Signature Admin Signer valide."  
+        )  
+        .setPositiveButton("OK", null)  
+        .show()  
+}  
+
+// DISPLAY IMPORT ERROR  
+private fun showImportError(message: String) {  
+    AlertDialog.Builder(this)  
+        .setTitle("Échec de l'importation")  
+        .setMessage(message)  
+        .setPositiveButton("OK", null)  
+        .show()  
+}  
+
+// DISPLAY IMPORTED VMESS CONFIG  
+private fun showImportedConfig(config: VmessConfig) {  
+    val details = """  
+        Nom : ${config.name.ifBlank { "Sans nom" }}  
+
+        Protocole : VMess  
+        Serveur : ${config.server}  
+        Port : ${config.port}  
+        UUID : ${config.uuid}  
+        Alter ID : ${config.alterId}  
+        Sécurité : ${config.security}  
+
+        Transport : ${config.transport}  
+        Host : ${config.host.ifBlank { "Non défini" }}  
+        Path : ${config.path.ifBlank { "Non défini" }}  
+
+        TLS : ${if (config.tlsEnabled) "Activé" else "Désactivé"}  
+        SNI : ${config.serverName.ifBlank { "Non défini" }}  
+        ALPN : ${config.alpn.joinToString().ifBlank { "Non défini" }}  
+
+        Configuration analysée et enregistrée localement.  
+    """.trimIndent()  
+
+    AlertDialog.Builder(this)  
+        .setTitle("Configuration VMess importée")  
+        .setMessage(details)  
+        .setPositiveButton("OK", null)  
+        .show()  
+
+    Toast.makeText(  
+        this,  
+        "Importation VMess réussie",  
+        Toast.LENGTH_SHORT  
+    ).show()  
+}  
+
+// ACTIVITY RESULTS  
+@Deprecated("Deprecated in Android API")  
+override fun onActivityResult(  
+    requestCode: Int,  
+    resultCode: Int,  
+    data: Intent?  
+) {  
+    super.onActivityResult(requestCode, resultCode, data)  
+
+    if (requestCode == configRequestCode) {  
+        if (resultCode == RESULT_OK) {  
+            val uri = data?.data  
+
+            if (uri != null) {  
+                importSelectedConfig(uri)  
+            } else {  
+                Toast.makeText(  
+                    this,  
+                    "Aucun fichier sélectionné.",  
+                    Toast.LENGTH_SHORT  
+                ).show()  
+            }  
+        }  
+        return  
+    }  
+
+    if (requestCode == vpnRequestCode) {  
+        if (resultCode == RESULT_OK) {  
+            showVpnAuthorizationGranted()  
+        } else {  
+            status.text = "VPN déconnecté"  
+
+            Toast.makeText(  
+                this,  
+                "Autorisation VPN refusée",  
+                Toast.LENGTH_SHORT  
+            ).show()  
+        }  
+    }  
+}  
+
+// VPN AUTHORIZATION  
+private fun showVpnAuthorizationGranted() {  
+    status.text = "Autorisation accordée — moteur à démarrer"  
+
+    Toast.makeText(  
+        this,  
+        "Autorisation VPN accordée",  
+        Toast.LENGTH_SHORT  
+    ).show()  
+}
+
 }
