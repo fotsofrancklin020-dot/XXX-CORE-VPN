@@ -1,4 +1,3 @@
-
 package com.frankdev.cloudflarexuipanel
 
 import android.app.Activity
@@ -39,7 +38,16 @@ class MainActivity : Activity() {
     private val workerUrl =
         "https://frankdev-xxxcore-server.fotsofrancklin020.workers.dev"
 
+    @Volatile
     private var adminToken = ""
+
+    @Volatile
+    private var adminExpiresAt: Long = 0L
+
+    private var authButton: Button? = null
+    @Volatile
+    private var verificationInProgress = false
+
     private lateinit var drawer: LinearLayout
     private lateinit var body: LinearLayout
     private lateinit var statusText: TextView
@@ -79,6 +87,16 @@ class MainActivity : Activity() {
 
         buildInterface()
         showDashboard()
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        if (adminToken.isNotBlank() && hasActiveAdminSession()) {
+            verifyAdminSession(adminToken)
+        } else {
+            refreshAuthUi()
+        }
     }
 
     // ANIMATION LUMINEUSE INDIVIDUELLE
@@ -158,8 +176,13 @@ class MainActivity : Activity() {
         pulse(heading, 0.035f)
 
         val loginButton = makeButton("Connexion")
+        authButton = loginButton
         loginButton.setOnClickListener {
-            showLoginScreen()
+            if (hasActiveAdminSession()) {
+                logoutAdmin()
+            } else {
+                showLoginScreen()
+            }
         }
 
         toolbar.addView(menuButton)
@@ -327,9 +350,18 @@ class MainActivity : Activity() {
         )
         pulse(footer, 0.025f)
         body.addView(footer)
+
+        refreshAuthUi()
     }
 
     private fun handleOption(option: String) {
+        if (
+            option != "Tableau de bord" &&
+            !requireActiveAdminSession()
+        ) {
+            return
+        }
+
         when (option) {
             "Tableau de bord" -> showDashboard()
             "Créer un client" -> showCreateClientDialog()
@@ -346,14 +378,7 @@ class MainActivity : Activity() {
     }
 
     private fun showCreateClientDialog() {
-        if (adminToken.isBlank()) {
-            showMessage(
-                "Connexion requise",
-                "Connecte-toi comme administrateur avant de créer un client."
-            )
-            return
-        }
-
+        if (!requireActiveAdminSession()) return
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 8, 24, 0)
@@ -420,13 +445,8 @@ class MainActivity : Activity() {
         username: String,
         password: String
     ) {
-        if (adminToken.isBlank()) {
-            showMessage(
-                "Connexion requise",
-                "La session administrateur est absente."
-            )
-            return
-        }
+        if (!requireActiveAdminSession()) return
+        val requestToken = adminToken
 
         Thread {
             var connection: HttpURLConnection? = null
@@ -443,7 +463,7 @@ class MainActivity : Activity() {
 
                 connection.setRequestProperty(
                     "Authorization",
-                    "Bearer $adminToken"
+                    "Bearer $requestToken"
                 )
                 connection.setRequestProperty(
                     "Content-Type",
@@ -710,29 +730,29 @@ class MainActivity : Activity() {
                 val response = readResponse(connection)
                 val json = JSONObject(response)
 
+                val receivedToken = json.optString("token", "")
+                val receivedExpiry = json.optLong("expires_at", 0L)
+                val nowSeconds = System.currentTimeMillis() / 1000L
+
                 if (
                     connection.responseCode in 200..299 &&
-                    json.has("token")
+                    receivedToken.isNotBlank() &&
+                    receivedExpiry > nowSeconds
                 ) {
-                    adminToken = json.getString("token")
+                    adminToken = receivedToken
+                    adminExpiresAt = receivedExpiry
 
                     runOnUiThread {
                         loginSubmitButton = null
-
-                        statusText.text =
-                            "Administrateur connecté"
-                        statusText.setTextColor(green)
-
                         showDashboard()
-
-                        statusText.text =
-                            "Administrateur connecté"
-                        statusText.setTextColor(green)
+                        refreshAuthUi()
 
                         showMessage(
                             "Connexion réussie",
-                            "Bienvenue dans le panneau FRANKDEV."
+                            "Bienvenue dans le panneau FRANKDEV. La session expirera automatiquement."
                         )
+
+                        verifyAdminSession(receivedToken)
                     }
                 } else {
                     runOnUiThread {
@@ -769,14 +789,187 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun loadClients(filter: String) {
-        if (adminToken.isBlank()) {
-            showMessage(
-                "Connexion requise",
-                "Connecte-toi comme administrateur."
-            )
+    private fun hasActiveAdminSession(): Boolean {
+        if (adminToken.isBlank()) return false
+
+        val nowSeconds = System.currentTimeMillis() / 1000L
+        if (adminExpiresAt <= nowSeconds) {
+            clearAdminSession()
+            return false
+        }
+
+        return true
+    }
+
+    private fun requireActiveAdminSession(): Boolean {
+        if (hasActiveAdminSession()) return true
+
+        refreshAuthUi()
+        showMessage(
+            "Connexion requise",
+            "La session administrateur est absente ou expirée. Reconnecte-toi."
+        )
+
+        if (currentScreen != "login") {
+            showLoginScreen()
+        }
+
+        return false
+    }
+
+    private fun refreshAuthUi() {
+        val active =
+            adminToken.isNotBlank() &&
+            adminExpiresAt > System.currentTimeMillis() / 1000L
+
+        authButton?.text = if (active) "Déconnexion" else "Connexion"
+
+        if (::statusText.isInitialized && currentScreen == "dashboard") {
+            statusText.text = if (active) {
+                "Administrateur connecté"
+            } else {
+                "Administrateur non connecté"
+            }
+            statusText.setTextColor(if (active) green else blue)
+        }
+    }
+
+    private fun clearAdminSession() {
+        adminToken = ""
+        adminExpiresAt = 0L
+        refreshAuthUi()
+    }
+
+    private fun verifyAdminSession(token: String) {
+        if (verificationInProgress) return
+        verificationInProgress = true
+
+        Thread {
+            var connection: HttpURLConnection? = null
+
+            try {
+                connection = URL("$workerUrl/admin/me")
+                    .openConnection() as HttpURLConnection
+
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.setRequestProperty(
+                    "Authorization",
+                    "Bearer $token"
+                )
+
+                val code = connection.responseCode
+                readResponse(connection)
+
+                runOnUiThread {
+                    if (adminToken == token) {
+                        if (code == 401 || code == 403) {
+                            clearAdminSession()
+                            if (currentScreen != "dashboard") {
+                                showDashboard()
+                            }
+                            showMessage(
+                                "Session expirée",
+                                "Le serveur a refusé cette session. Reconnecte-toi."
+                            )
+                        } else if (code in 200..299) {
+                            refreshAuthUi()
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Une panne réseau temporaire ne détruit pas la session locale.
+            } finally {
+                connection?.disconnect()
+                verificationInProgress = false
+            }
+        }.start()
+    }
+
+    private fun logoutAdmin() {
+        if (!hasActiveAdminSession()) {
+            showDashboard()
             return
         }
+
+        val token = adminToken
+        authButton?.isEnabled = false
+
+        Thread {
+            var connection: HttpURLConnection? = null
+
+            try {
+                connection = URL("$workerUrl/admin/logout")
+                    .openConnection() as HttpURLConnection
+
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+                connection.doOutput = true
+
+                connection.setRequestProperty(
+                    "Authorization",
+                    "Bearer $token"
+                )
+                connection.setRequestProperty(
+                    "Content-Type",
+                    "application/json"
+                )
+
+                connection.outputStream.use {
+                    it.write("{}".toByteArray(Charsets.UTF_8))
+                }
+
+                val response = readResponse(connection)
+                val code = connection.responseCode
+
+                runOnUiThread {
+                    authButton?.isEnabled = true
+
+                    if (code in 200..299) {
+                        if (adminToken == token) {
+                            clearAdminSession()
+                        }
+
+                        showDashboard()
+                        showMessage(
+                            "Déconnexion réussie",
+                            "La session administrateur a été révoquée côté serveur."
+                        )
+                    } else {
+                        val errorMessage = try {
+                            JSONObject(response).optString(
+                                "error",
+                                "Le serveur n'a pas confirmé la révocation."
+                            )
+                        } catch (_: Exception) {
+                            "Le serveur n'a pas confirmé la révocation."
+                        }
+
+                        showMessage(
+                            "Déconnexion non confirmée",
+                            errorMessage
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    authButton?.isEnabled = true
+                    showMessage(
+                        "Erreur réseau",
+                        "La révocation côté serveur n'a pas pu être confirmée. ${e.message ?: ""}"
+                    )
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
+    private fun loadClients(filter: String) {
+        if (!requireActiveAdminSession()) return
+        val requestToken = adminToken
 
         Thread {
             var connection: HttpURLConnection? = null
@@ -792,7 +985,7 @@ class MainActivity : Activity() {
 
                 connection.setRequestProperty(
                     "Authorization",
-                    "Bearer $adminToken"
+                    "Bearer $requestToken"
                 )
 
                 val response = readResponse(connection)
@@ -911,13 +1104,8 @@ class MainActivity : Activity() {
     }
 
     private fun loadOnlineClients(disconnectMode: Boolean) {
-        if (adminToken.isBlank()) {
-            showMessage(
-                "Connexion requise",
-                "Connecte-toi comme administrateur."
-            )
-            return
-        }
+        if (!requireActiveAdminSession()) return
+        val requestToken = adminToken
 
         Thread {
             var connection: HttpURLConnection? = null
@@ -933,7 +1121,7 @@ class MainActivity : Activity() {
 
                 connection.setRequestProperty(
                     "Authorization",
-                    "Bearer $adminToken"
+                    "Bearer $requestToken"
                 )
 
                 val response = readResponse(connection)
@@ -1092,14 +1280,7 @@ class MainActivity : Activity() {
         sessionId: String,
         username: String
     ) {
-        if (adminToken.isBlank()) {
-            showMessage(
-                "Connexion requise",
-                "La session administrateur est absente."
-            )
-            return
-        }
-
+        if (!requireActiveAdminSession()) return
         if (
             !Regex(
                 "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
@@ -1111,6 +1292,8 @@ class MainActivity : Activity() {
             )
             return
         }
+
+        val requestToken = adminToken
 
         Thread {
             var connection: HttpURLConnection? = null
@@ -1126,7 +1309,7 @@ class MainActivity : Activity() {
 
                 connection.setRequestProperty(
                     "Authorization",
-                    "Bearer $adminToken"
+                    "Bearer $requestToken"
                 )
 
                 val response = readResponse(connection)
@@ -1180,6 +1363,10 @@ class MainActivity : Activity() {
         id: String,
         active: Boolean
     ) {
+        if (!requireActiveAdminSession()) return
+
+        val requestToken = adminToken
+
         Thread {
             var connection: HttpURLConnection? = null
 
@@ -1195,7 +1382,7 @@ class MainActivity : Activity() {
 
                 connection.setRequestProperty(
                     "Authorization",
-                    "Bearer $adminToken"
+                    "Bearer $requestToken"
                 )
                 connection.setRequestProperty(
                     "Content-Type",
