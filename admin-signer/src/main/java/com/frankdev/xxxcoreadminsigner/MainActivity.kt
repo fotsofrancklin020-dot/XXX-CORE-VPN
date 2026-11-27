@@ -1048,7 +1048,7 @@ body.removeAllViews()
             }
         }.start()
     }
-    
+
 private fun showClientList(clients: JSONArray) {
     currentScreen = "clients"
     stopPulses(body)
@@ -1121,8 +1121,44 @@ private fun showClientList(clients: JSONArray) {
         toggle.setOnClickListener {
             changeClientStatus(id, !active)
         }
-
         card.addView(toggle)
+
+        val deleteButton = makeButton(
+            "🗑 Supprimer définitivement"
+        )
+
+        deleteButton.setTextColor(Color.WHITE)
+        deleteButton.background = GradientDrawable().apply {
+            setColor(Color.rgb(105, 20, 32))
+            cornerRadius = 16f
+            setStroke(2, red)
+        }
+
+        deleteButton.setOnClickListener {
+            if (!Regex(
+                "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            ).matches(id)) {
+                showMessage(
+                    "Erreur",
+                    "Identifiant du client invalide."
+                )
+                return@setOnClickListener
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("⚠️ Suppression définitive")
+                .setMessage(
+                    "Voulez-vous vraiment supprimer le client $username ?\n\n" +
+                    "Cette opération supprimera également ses sessions et ses configurations. Elle est irréversible."
+                )
+                .setPositiveButton("Supprimer") { _, _ ->
+                    deleteClient(id, username)
+                }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
+
+        card.addView(deleteButton)
 
         val params = LinearLayout.LayoutParams(-1, -2)
         params.setMargins(0, 9, 0, 9)
