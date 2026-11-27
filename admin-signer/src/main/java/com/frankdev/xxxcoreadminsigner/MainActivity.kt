@@ -527,6 +527,7 @@ body.removeAllViews()
         }.start()
     }
 
+    
     // PAGE DE CONNEXION ADMINISTRATEUR
     private fun showLoginScreen() {
         currentScreen = "login"
@@ -539,6 +540,7 @@ body.removeAllViews()
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         )
 
+        stopPulses(body)
         body.removeAllViews()
 
         val page = LinearLayout(this).apply {
