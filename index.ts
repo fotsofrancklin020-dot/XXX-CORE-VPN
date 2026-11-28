@@ -78,6 +78,68 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${iterations}$${saltHex}$${hashHex}`;
 }
 
+async function verifyPassword(
+  password: string,
+  storedHash: string
+): Promise<boolean> {
+  try {
+    const parts = storedHash.split("$");
+
+    if (parts.length !== 4 || parts[0] !== "pbkdf2") {
+      return false;
+    }
+
+    const iterations = Number(parts[1]);
+    const saltHex = parts[2];
+    const expectedHash = parts[3];
+
+    if (
+      !Number.isInteger(iterations) ||
+      iterations !== 100000 ||
+      !/^[a-f0-9]{32}$/i.test(saltHex) ||
+      !/^[a-f0-9]{64}$/i.test(expectedHash)
+    ) {
+      return false;
+    }
+
+    const salt = new Uint8Array(
+      saltHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16))
+    );
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt,
+        iterations,
+        hash: "SHA-256",
+      },
+      key,
+      256
+    );
+
+    const calculatedHash = Array.from(
+      new Uint8Array(bits)
+    )
+      .map(byte => byte.toString(16).padStart(2, "0"))
+      .join("");
+
+    return constantTimeEqual(
+      calculatedHash,
+      expectedHash
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function logAdminAction(
   env: Env,
   action: string,
