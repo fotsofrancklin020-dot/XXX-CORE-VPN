@@ -31,8 +31,10 @@ private lateinit var subscriptionUrl: EditText
 private lateinit var udpServer: EditText  
 private lateinit var udpUsername: EditText  
 private lateinit var udpPassword: EditText  
-private lateinit var udpSni: EditText  
-private lateinit var status: TextView  
+private lateinit var udpSni: EditText
+private lateinit var clientUsername: EditText
+private lateinit var clientPassword: EditText 
+private lateinit var status: TextView 
 
 private var shouldRefreshTheme = false  
 
@@ -286,6 +288,20 @@ override fun onCreate(savedInstanceState: Bundle?) {
         gravity = Gravity.CENTER  
         setTextColor(textColor)  
     }  
+
+    // CLIENT LOGIN FIELDS
+    clientUsername = EditText(this).apply {
+        hint = "Nom d'utilisateur"
+        setSingleLine(true)
+        inputType = InputType.TYPE_CLASS_TEXT
+    }
+
+    clientPassword = EditText(this).apply {
+        hint = "Mot de passe"
+        setSingleLine(true)
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_VARIATION_PASSWORD
+    }
 
     // CONNECT BUTTON  
     val connectButton = Button(this).apply {  
