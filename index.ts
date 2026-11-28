@@ -250,6 +250,282 @@ export default {
       }
     }
 
+    // CLIENT LOGIN - ANDROID AUTHENTICATION
+    if (
+      request.method === "POST" &&
+      url.pathname === "/client/login"
+    ) {
+      let body: {
+        username?: string;
+        password?: string;
+      };
+
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400);
+      }
+
+      const username = body.username?.trim().toLowerCase();
+      const password = body.password;
+
+      if (
+        !username ||
+        !/^[a-z0-9_.-]{3,32}$/.test(username) ||
+        typeof password !== "string" ||
+        password.length < 1 ||
+        password.length > 128
+      ) {
+        return json({ error: "Invalid credentials" }, 400);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const attemptKey = await sha256(
+        `client-login:${username}:${ip}`
+      );
+
+      try {
+        // CHECK LOGIN RATE LIMIT
+        const attempt = await env.DB.prepare(
+          `SELECT attempts, window_started_at, blocked_until
+           FROM client_login_attempts
+           WHERE attempt_key = ?
+           LIMIT 1`
+        )
+          .bind(attemptKey)
+          .first<{
+            attempts: number;
+            window_started_at: number;
+            blocked_until: number;
+          }>();
+
+        if (attempt && attempt.blocked_until > now) {
+          return json({
+            error: "Too many login attempts",
+            message: "Please try again later",
+            retry_after: attempt.blocked_until,
+          }, 429);
+        }
+
+        // FIND CLIENT
+        const client = await env.DB.prepare(
+          `SELECT id, username, password_hash, active
+           FROM clients
+           WHERE username = ?
+           LIMIT 1`
+        )
+          .bind(username)
+          .first<{
+            id: string;
+            username: string;
+            password_hash: string;
+            active: number;
+          }>();
+
+        // VERIFY PASSWORD
+        const passwordValid = client
+          ? await verifyPassword(password, client.password_hash)
+          : false;
+
+        if (!client || !passwordValid) {
+          const resetWindow =
+            !attempt || now - attempt.window_started_at >= 900;
+
+          const nextAttempts = resetWindow
+            ? 1
+            : attempt.attempts + 1;
+
+          const windowStartedAt = resetWindow
+            ? now
+            : attempt.window_started_at;
+
+          const blockedUntil = nextAttempts >= 5
+            ? now + 900
+            : 0;
+
+          await env.DB.prepare(
+            `INSERT INTO client_login_attempts (
+               attempt_key,
+               attempts,
+               window_started_at,
+               blocked_until,
+               updated_at
+             )
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(attempt_key) DO UPDATE SET
+               attempts = excluded.attempts,
+               window_started_at = excluded.window_started_at,
+               blocked_until = excluded.blocked_until,
+               updated_at = excluded.updated_at`
+          )
+            .bind(
+              attemptKey,
+              nextAttempts,
+              windowStartedAt,
+              blockedUntil,
+              now
+            )
+            .run();
+
+          return json({
+            error: "Invalid username or password",
+          }, 401);
+        }
+
+        // CLEAR FAILED ATTEMPTS AFTER VALID PASSWORD
+        await env.DB.prepare(
+          `DELETE FROM client_login_attempts
+           WHERE attempt_key = ?`
+        )
+          .bind(attemptKey)
+          .run();
+
+        // CHECK CLIENT STATUS
+        if (client.active !== 1) {
+          return json({
+            error: "Client account is disabled",
+          }, 403);
+        }
+
+        // CHECK ACTIVE SUBSCRIPTION AND VALID DATES
+        const subscription = await env.DB.prepare(
+          `SELECT
+             id,
+             plan_name,
+             starts_at,
+             expires_at,
+             quota_bytes
+           FROM client_subscriptions
+           WHERE client_id = ?
+             AND status = 'active'
+             AND starts_at <= ?
+             AND expires_at > ?
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+          .bind(client.id, now, now)
+          .first<{
+            id: string;
+            plan_name: string;
+            starts_at: number;
+            expires_at: number;
+            quota_bytes: number;
+          }>();
+
+        if (!subscription) {
+          return json({
+            error: "Subscription unavailable",
+            message: "Your subscription is expired, suspended, cancelled or not yet active",
+          }, 403);
+        }
+
+        // REVOKE EXPIRED AUTHENTICATION SESSIONS
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET revoked = 1
+           WHERE client_id = ?
+             AND revoked = 0
+             AND expires_at <= ?`
+        )
+          .bind(client.id, now)
+          .run();
+
+        // ENFORCE ONE ACTIVE DEVICE PER CLIENT
+        const existingSession = await env.DB.prepare(
+          `SELECT id
+           FROM client_auth_sessions
+           WHERE client_id = ?
+             AND revoked = 0
+             AND expires_at > ?
+           LIMIT 1`
+        )
+          .bind(client.id, now)
+          .first<{ id: string }>();
+
+        if (existingSession) {
+          return json({
+            error: "Account already connected",
+            message: "Disconnect the other device before logging in",
+          }, 409);
+        }
+
+        // CREATE CLIENT AUTHENTICATION SESSION
+        const token = randomToken();
+        const tokenHash = await sha256(token);
+        const sessionId = crypto.randomUUID();
+        const expiresAt = now + (30 * 24 * 60 * 60);
+
+        try {
+          await env.DB.prepare(
+            `INSERT INTO client_auth_sessions (
+               id,
+               client_id,
+               token_hash,
+               created_at,
+               last_seen_at,
+               expires_at,
+               revoked
+             )
+             VALUES (?, ?, ?, ?, ?, ?, 0)`
+          )
+            .bind(
+              sessionId,
+              client.id,
+              tokenHash,
+              now,
+              now,
+              expiresAt
+            )
+            .run();
+        } catch (sessionError) {
+          const concurrentSession = await env.DB.prepare(
+            `SELECT id
+             FROM client_auth_sessions
+             WHERE client_id = ?
+               AND revoked = 0
+               AND expires_at > ?
+             LIMIT 1`
+          )
+            .bind(client.id, now)
+            .first<{ id: string }>();
+
+          if (concurrentSession) {
+            return json({
+              error: "Account already connected",
+            }, 409);
+          }
+
+          throw sessionError;
+        }
+
+        return json({
+          status: "authenticated",
+          token,
+          token_type: "Bearer",
+          expires_at: expiresAt,
+          client: {
+            id: client.id,
+            username: client.username,
+          },
+          subscription: {
+            id: subscription.id,
+            plan_name: subscription.plan_name,
+            starts_at: subscription.starts_at,
+            expires_at: subscription.expires_at,
+            quota_bytes: subscription.quota_bytes,
+          },
+        });
+
+      } catch (error) {
+        console.error("CLIENT_LOGIN_ERROR:", error);
+
+        return json({
+          error: "Client login failed",
+        }, 500);
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
