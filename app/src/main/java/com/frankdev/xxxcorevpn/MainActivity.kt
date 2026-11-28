@@ -303,6 +303,31 @@ override fun onCreate(savedInstanceState: Bundle?) {
             InputType.TYPE_TEXT_VARIATION_PASSWORD
     }
 
+    // CLIENT LOGIN BUTTON
+    val clientLoginButton = Button(this).apply {
+        text = "SE CONNECTER AU COMPTE"
+
+        setOnClickListener {
+            val username = clientUsername.text.toString().trim()
+            val password = clientPassword.text.toString()
+
+            if (username.isBlank() || password.isBlank()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Entre ton nom d'utilisateur et ton mot de passe",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
+
+            Toast.makeText(
+                this@MainActivity,
+                "Informations saisies. Connexion API à intégrer.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     // CONNECT BUTTON  
     val connectButton = Button(this).apply {  
         text = "CONNECTER"  
