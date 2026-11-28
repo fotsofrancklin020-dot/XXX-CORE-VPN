@@ -526,6 +526,157 @@ export default {
       }
     }
 
+    // CLIENT SESSION VERIFICATION - ANDROID
+    if (
+      request.method === "POST" &&
+      url.pathname === "/client/me"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Authentication required",
+        }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid authentication token",
+        }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        // FIND CLIENT SESSION
+        const session = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             s.expires_at,
+             s.revoked,
+             c.username,
+             c.active
+           FROM client_auth_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.token_hash = ?
+           LIMIT 1`
+        )
+          .bind(tokenHash)
+          .first<{
+            session_id: string;
+            client_id: string;
+            expires_at: number;
+            revoked: number;
+            username: string;
+            active: number;
+          }>();
+
+        if (
+          !session ||
+          session.revoked !== 0 ||
+          session.expires_at <= now
+        ) {
+          return json({
+            error: "Session expired or invalid",
+          }, 401);
+        }
+
+        // CHECK CLIENT ACCOUNT
+        if (session.active !== 1) {
+          await env.DB.prepare(
+            `UPDATE client_auth_sessions
+             SET revoked = 1
+             WHERE id = ?`
+          )
+            .bind(session.session_id)
+            .run();
+
+          return json({
+            error: "Client account is disabled",
+          }, 403);
+        }
+
+        // CHECK ACTIVE SUBSCRIPTION
+        const subscription = await env.DB.prepare(
+          `SELECT
+             id,
+             plan_name,
+             starts_at,
+             expires_at,
+             quota_bytes
+           FROM client_subscriptions
+           WHERE client_id = ?
+             AND status = 'active'
+             AND starts_at <= ?
+             AND expires_at > ?
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+          .bind(session.client_id, now, now)
+          .first<{
+            id: string;
+            plan_name: string;
+            starts_at: number;
+            expires_at: number;
+            quota_bytes: number;
+          }>();
+
+        if (!subscription) {
+          await env.DB.prepare(
+            `UPDATE client_auth_sessions
+             SET revoked = 1
+             WHERE id = ?`
+          )
+            .bind(session.session_id)
+            .run();
+
+          return json({
+            error: "Subscription unavailable",
+          }, 403);
+        }
+
+        // UPDATE SESSION ACTIVITY
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET last_seen_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, session.session_id)
+          .run();
+
+        return json({
+          status: "authenticated",
+          role: "client",
+          client: {
+            id: session.client_id,
+            username: session.username,
+          },
+          subscription: {
+            id: subscription.id,
+            plan_name: subscription.plan_name,
+            starts_at: subscription.starts_at,
+            expires_at: subscription.expires_at,
+            quota_bytes: subscription.quota_bytes,
+          },
+          session: {
+            expires_at: session.expires_at,
+          },
+        });
+
+      } catch (error) {
+        console.error("CLIENT_SESSION_ERROR:", error);
+
+        return json({
+          error: "Unable to verify client session",
+        }, 500);
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
