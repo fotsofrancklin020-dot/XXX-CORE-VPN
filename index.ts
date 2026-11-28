@@ -741,6 +741,7 @@ export default {
       }
     }
 
+    
     // ADMIN CLIENT SUBSCRIPTION MANAGEMENT
     const subscriptionMatch = url.pathname.match(
       /^\/admin\/clients\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/subscription$/i
@@ -774,7 +775,7 @@ export default {
           return json({ error: "Client not found" }, 404);
         }
 
-        // CONSULT SUBSCRIPTION
+        // GET - CONSULT SUBSCRIPTION
         if (request.method === "GET") {
           const subscription = await env.DB.prepare(
             `SELECT
@@ -793,7 +794,17 @@ export default {
              LIMIT 1`
           )
             .bind(clientId)
-            .first();
+            .first<{
+              id: string;
+              client_id: string;
+              plan_name: string;
+              status: string;
+              starts_at: number;
+              expires_at: number;
+              quota_bytes: number;
+              created_at: number;
+              updated_at: number;
+            }>();
 
           const lifetimeUsage = await env.DB.prepare(
             `SELECT upload_bytes, download_bytes, updated_at
@@ -813,7 +824,7 @@ export default {
                WHERE subscription_id = ?
                LIMIT 1`
             )
-              .bind((subscription as { id: string }).id)
+              .bind(subscription.id)
               .first();
           }
 
@@ -830,7 +841,7 @@ export default {
           });
         }
 
-        // CREATE OR RENEW SUBSCRIPTION
+        // POST - CREATE OR RENEW SUBSCRIPTION
         if (request.method === "POST") {
           let body: {
             plan_name?: string;
@@ -955,7 +966,7 @@ export default {
           }, 201);
         }
 
-        // SUSPEND OR CANCEL ACTIVE SUBSCRIPTION
+        // PATCH - SUSPEND OR CANCEL SUBSCRIPTION
         if (request.method === "PATCH") {
           let body: {
             status?: string;
@@ -976,29 +987,61 @@ export default {
             }, 400);
           }
 
+          const activeSubscription = await env.DB.prepare(
+            `SELECT id
+             FROM client_subscriptions
+             WHERE client_id = ?
+               AND status = 'active'
+             LIMIT 1`
+          )
+            .bind(clientId)
+            .first<{ id: string }>();
+
+          if (!activeSubscription) {
+            return json({
+              error: "No active subscription found for this client",
+            }, 404);
+          }
+
+          const subscriptionId = activeSubscription.id;
+
           const results = await env.DB.batch([
             env.DB.prepare(
               `UPDATE client_subscriptions
                SET status = ?,
                    updated_at = ?
-               WHERE client_id = ?
+               WHERE id = ?
                  AND status = 'active'`
-            ).bind(body.status, now, clientId),
+            ).bind(body.status, now, subscriptionId),
 
             env.DB.prepare(
               `UPDATE client_auth_sessions
                SET revoked = 1
                WHERE client_id = ?
-                 AND revoked = 0`
-            ).bind(clientId),
+                 AND revoked = 0
+                 AND EXISTS (
+                   SELECT 1
+                   FROM client_subscriptions
+                   WHERE id = ?
+                     AND status = ?
+                     AND updated_at = ?
+                 )`
+            ).bind(clientId, subscriptionId, body.status, now),
 
             env.DB.prepare(
               `UPDATE client_sessions
                SET revoked = 1,
                    disconnected_at = ?
                WHERE client_id = ?
-                 AND revoked = 0`
-            ).bind(now, clientId),
+                 AND revoked = 0
+                 AND EXISTS (
+                   SELECT 1
+                   FROM client_subscriptions
+                   WHERE id = ?
+                     AND status = ?
+                     AND updated_at = ?
+                 )`
+            ).bind(now, clientId, subscriptionId, body.status, now),
 
             env.DB.prepare(
               `INSERT INTO admin_logs (
@@ -1011,8 +1054,9 @@ export default {
                WHERE EXISTS (
                  SELECT 1
                  FROM client_subscriptions
-                 WHERE client_id = ?
+                 WHERE id = ?
                    AND status = ?
+                   AND updated_at = ?
                )`
             ).bind(
               crypto.randomUUID(),
@@ -1021,20 +1065,22 @@ export default {
                 : "SUBSCRIPTION_CANCELLED",
               `Subscription ${body.status} for ${client.username}`,
               now,
-              clientId,
-              body.status
+              subscriptionId,
+              body.status,
+              now
             ),
           ]);
 
           if (results[0].meta.changes === 0) {
             return json({
-              error: "No active subscription found for this client",
-            }, 404);
+              error: "Subscription changed or is no longer active",
+            }, 409);
           }
 
           return json({
             status: body.status,
             client_id: clientId,
+            subscription_id: subscriptionId,
             revoked_auth_sessions: results[1].meta.changes,
             revoked_vpn_sessions: results[2].meta.changes,
           });
