@@ -676,6 +676,61 @@ export default {
         }, 500);
       }
     }
+    // CLIENT LOGOUT - ANDROID
+    if (
+      request.method === "POST" &&
+      url.pathname === "/client/logout"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Authentication required",
+        }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid authentication token",
+        }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        const result = await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET revoked = 1,
+               last_seen_at = ?
+           WHERE token_hash = ?
+             AND revoked = 0
+             AND expires_at > ?`
+        )
+          .bind(now, tokenHash, now)
+          .run();
+
+        if (!result.meta.changes) {
+          return json({
+            error: "Session already expired or invalid",
+          }, 401);
+        }
+
+        return json({
+          status: "logged_out",
+          message: "Client session successfully revoked",
+        });
+
+      } catch (error) {
+        console.error("CLIENT_LOGOUT_ERROR:", error);
+
+        return json({
+          error: "Unable to logout client",
+        }, 500);
+      }
+    }
 
     // ADMIN LOGIN
     if (
