@@ -380,20 +380,24 @@ export default {
           const passwordHash = await hashPassword(password);
           const createdAt = Math.floor(Date.now() / 1000);
 
-          await env.DB.prepare(
-            `INSERT INTO clients
-             (id, username, password_hash, active, created_at)
-             VALUES (?, ?, ?, 1, ?)`
-          )
-            .bind(id, username, passwordHash, createdAt)
-            .run();
+          await env.DB.batch([
+  env.DB.prepare(
+    `INSERT INTO clients
+     (id, username, password_hash, active, created_at)
+     VALUES (?, ?, ?, 1, ?)`
+  ).bind(id, username, passwordHash, createdAt),
 
-          await logAdminAction(
-            env,
-            "CLIENT_CREATED",
-            `Client created: ${username}`
-          );
-
+  env.DB.prepare(
+    `INSERT INTO admin_logs
+     (id, action, details, created_at)
+     VALUES (?, ?, ?, ?)`
+  ).bind(
+    crypto.randomUUID(),
+    "CLIENT_CREATED",
+    `Client created: ${username}`,
+    createdAt
+  ),
+]);
           return json({
             status: "created",
             client: {
