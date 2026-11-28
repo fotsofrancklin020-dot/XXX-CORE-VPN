@@ -555,7 +555,7 @@ export default {
           return json({ error: "Client not found" }, 404);
         }
 
-        const results = await env.DB.batch([
+                const results = await env.DB.batch([
           env.DB.prepare(
             `UPDATE client_sessions
              SET revoked = 1,
@@ -566,6 +566,21 @@ export default {
 
           env.DB.prepare(
             `DELETE FROM client_configs
+             WHERE client_id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `DELETE FROM client_protocol_configs
+             WHERE client_id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `DELETE FROM client_subscriptions
+             WHERE client_id = ?`
+          ).bind(clientId),
+
+          env.DB.prepare(
+            `DELETE FROM client_usage_totals
              WHERE client_id = ?`
           ).bind(clientId),
 
@@ -591,7 +606,7 @@ export default {
           ),
         ]);
 
-        if (results[3].meta.changes === 0) {
+        if (results[6].meta.changes === 0) {
           return json({
             error: "Client deletion failed",
           }, 409);
@@ -604,6 +619,9 @@ export default {
           deleted_at: now,
           sessions_revoked: true,
           configurations_deleted: true,
+          protocol_configs_deleted: true,
+          subscriptions_deleted: true,
+          usage_totals_deleted: true,
         });
       } catch (error) {
         console.error("CLIENT_DELETE_ERROR:", error);
