@@ -924,6 +924,144 @@ export default {
       }
     }
 
+    // CLIENT CONFIGS - ANDROID
+    if (
+      request.method === "GET" &&
+      url.pathname === "/client/configs"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Authentication required",
+        }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid authentication token",
+        }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        // VERIFY CLIENT SESSION
+        const session = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             c.username,
+             c.active
+           FROM client_auth_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.token_hash = ?
+             AND s.revoked = 0
+             AND s.expires_at > ?
+           LIMIT 1`
+        )
+          .bind(tokenHash, now)
+          .first<{
+            session_id: string;
+            client_id: string;
+            username: string;
+            active: number;
+          }>();
+
+        if (!session) {
+          return json({
+            error: "Session expired or invalid",
+          }, 401);
+        }
+
+        // CHECK CLIENT ACCOUNT
+        if (session.active !== 1) {
+          return json({
+            error: "Client account is disabled",
+          }, 403);
+        }
+
+        // VERIFY ACTIVE SUBSCRIPTION
+        const subscription = await env.DB.prepare(
+          `SELECT id
+           FROM client_subscriptions
+           WHERE client_id = ?
+             AND status = 'active'
+             AND starts_at <= ?
+             AND expires_at > ?
+           LIMIT 1`
+        )
+          .bind(session.client_id, now, now)
+          .first<{ id: string }>();
+
+        if (!subscription) {
+          return json({
+            error: "Subscription unavailable",
+          }, 403);
+        }
+
+        // FETCH ONLY THIS CLIENT'S ACTIVE CONFIGURATIONS
+        const result = await env.DB.prepare(
+          `SELECT
+             id,
+             protocol,
+             config_name,
+             config_json,
+             expires_at,
+             created_at,
+             updated_at
+           FROM client_protocol_configs
+           WHERE client_id = ?
+             AND enabled = 1
+             AND (
+               expires_at IS NULL
+               OR expires_at > ?
+             )
+           ORDER BY created_at DESC`
+        )
+          .bind(session.client_id, now)
+          .all<{
+            id: string;
+            protocol: string;
+            config_name: string;
+            config_json: string;
+            expires_at: number | null;
+            created_at: number;
+            updated_at: number;
+          }>();
+
+        // UPDATE SESSION ACTIVITY
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET last_seen_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, session.session_id)
+          .run();
+
+        return json({
+          status: "success",
+          client: {
+            id: session.client_id,
+            username: session.username,
+          },
+          configs: result.results,
+          total: result.results.length,
+        });
+
+      } catch (error) {
+        console.error("CLIENT_CONFIGS_ERROR:", error);
+
+        return json({
+          error: "Unable to retrieve client configurations",
+        }, 500);
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
