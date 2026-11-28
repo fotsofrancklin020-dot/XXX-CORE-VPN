@@ -2,6 +2,7 @@
 interface Env {
   DB: D1Database;
   XXXCORE_ADMIN_SECRET: string;
+  ASSETS: Fetcher;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -160,13 +161,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // ROOT
-    if (request.method === "GET" && url.pathname === "/") {
-      return json({
-        app: "XXX-CORE-VPN",
-        brand: "FRANKDEV BUILD",
-        status: "online",
-      });
+    // ROOT - ADMIN PANEL
+    if (
+      request.method === "GET" &&
+      url.pathname === "/"
+    ) {
+      return env.ASSETS.fetch(request);
     }
 
     // HEALTH
@@ -738,6 +738,19 @@ export default {
         return json({
           error: "Client status update failed",
         }, 500);
+      }
+    }
+
+    // STATIC ADMIN PANEL ASSETS
+    if (
+      request.method === "GET" ||
+      request.method === "HEAD"
+    ) {
+      if (
+        url.pathname !== "/health" &&
+        !url.pathname.startsWith("/admin/")
+      ) {
+        return env.ASSETS.fetch(request);
       }
     }
 
