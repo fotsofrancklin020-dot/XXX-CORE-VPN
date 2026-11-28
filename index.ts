@@ -732,6 +732,198 @@ export default {
       }
     }
 
+    // CLIENT USAGE - ANDROID
+    if (
+      request.method === "GET" &&
+      url.pathname === "/client/usage"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Authentication required",
+        }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid authentication token",
+        }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        // VERIFY CLIENT SESSION
+        const session = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             s.expires_at,
+             c.username,
+             c.active
+           FROM client_auth_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.token_hash = ?
+             AND s.revoked = 0
+             AND s.expires_at > ?
+           LIMIT 1`
+        )
+          .bind(tokenHash, now)
+          .first<{
+            session_id: string;
+            client_id: string;
+            expires_at: number;
+            username: string;
+            active: number;
+          }>();
+
+        if (!session) {
+          return json({
+            error: "Session expired or invalid",
+          }, 401);
+        }
+
+        if (session.active !== 1) {
+          return json({
+            error: "Client account is disabled",
+          }, 403);
+        }
+
+        // FIND ACTIVE SUBSCRIPTION
+        const subscription = await env.DB.prepare(
+          `SELECT
+             id,
+             plan_name,
+             starts_at,
+             expires_at,
+             quota_bytes
+           FROM client_subscriptions
+           WHERE client_id = ?
+             AND status = 'active'
+             AND starts_at <= ?
+             AND expires_at > ?
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+          .bind(session.client_id, now, now)
+          .first<{
+            id: string;
+            plan_name: string;
+            starts_at: number;
+            expires_at: number;
+            quota_bytes: number;
+          }>();
+
+        if (!subscription) {
+          return json({
+            error: "Subscription unavailable",
+          }, 403);
+        }
+
+        // READ CUMULATIVE CLIENT USAGE
+        const totalUsage = await env.DB.prepare(
+          `SELECT
+             upload_bytes,
+             download_bytes
+           FROM client_usage_totals
+           WHERE client_id = ?
+           LIMIT 1`
+        )
+          .bind(session.client_id)
+          .first<{
+            upload_bytes: number;
+            download_bytes: number;
+          }>();
+
+        // READ CURRENT SUBSCRIPTION USAGE
+        const subscriptionUsage = await env.DB.prepare(
+          `SELECT
+             upload_bytes,
+             download_bytes
+           FROM client_subscription_usage
+           WHERE subscription_id = ?
+           LIMIT 1`
+        )
+          .bind(subscription.id)
+          .first<{
+            upload_bytes: number;
+            download_bytes: number;
+          }>();
+
+        const totalUpload = totalUsage?.upload_bytes ?? 0;
+        const totalDownload = totalUsage?.download_bytes ?? 0;
+
+        const subscriptionUpload =
+          subscriptionUsage?.upload_bytes ?? 0;
+
+        const subscriptionDownload =
+          subscriptionUsage?.download_bytes ?? 0;
+
+        const totalBytes = totalUpload + totalDownload;
+
+        const subscriptionTotalBytes =
+          subscriptionUpload + subscriptionDownload;
+
+        const remainingBytes = subscription.quota_bytes === 0
+          ? null
+          : Math.max(
+              0,
+              subscription.quota_bytes - subscriptionTotalBytes
+            );
+
+        // UPDATE SESSION ACTIVITY
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET last_seen_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, session.session_id)
+          .run();
+
+        return json({
+          status: "success",
+          client: {
+            id: session.client_id,
+            username: session.username,
+          },
+          subscription: {
+            id: subscription.id,
+            plan_name: subscription.plan_name,
+            starts_at: subscription.starts_at,
+            expires_at: subscription.expires_at,
+            quota_bytes: subscription.quota_bytes,
+          },
+          usage: {
+            total: {
+              upload_bytes: totalUpload,
+              download_bytes: totalDownload,
+              total_bytes: totalBytes,
+            },
+            current_subscription: {
+              upload_bytes: subscriptionUpload,
+              download_bytes: subscriptionDownload,
+              total_bytes: subscriptionTotalBytes,
+              quota_bytes: subscription.quota_bytes,
+              remaining_bytes: remainingBytes,
+              unlimited: subscription.quota_bytes === 0,
+            },
+          },
+        });
+
+      } catch (error) {
+        console.error("CLIENT_USAGE_ERROR:", error);
+
+        return json({
+          error: "Unable to retrieve client usage",
+        }, 500);
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
