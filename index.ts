@@ -555,7 +555,7 @@ export default {
           return json({ error: "Client not found" }, 404);
         }
 
-         const results = await env.DB.batch([
+        const results = await env.DB.batch([
           env.DB.prepare(
             `UPDATE client_sessions
              SET revoked = 1,
