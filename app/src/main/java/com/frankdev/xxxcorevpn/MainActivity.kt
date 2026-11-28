@@ -446,7 +446,9 @@ override fun onCreate(savedInstanceState: Bundle?) {
     // DASHBOARD ELEMENTS  
     layout.addView(menuButton)  
     layout.addView(title)  
-    layout.addView(status)  
+    layout.addView(status)
+    layout.addView(clientUsername)
+    layout.addView(clientPassword)
     layout.addView(connectButton)  
     layout.addView(settingsButton)  
     layout.addView(subscriptionUrl)  
