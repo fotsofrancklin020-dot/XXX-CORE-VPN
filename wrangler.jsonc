@@ -4,6 +4,11 @@
   "name": "frankdev-xxxcore-server",
   "main": "index.ts",
   "compatibility_date": "2026-11-22",
+  "assets": {
+    "directory": "./admin-panel",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
   "d1_databases": [
     {
       "binding": "DB",
