@@ -1,7 +1,9 @@
-
 name: XXX-CORE-VPN - Sauvegarde D1
 
 on:
+  push:
+    branches:
+      - cloudflare-x-ui-panel
   workflow_dispatch:
 
 permissions:
