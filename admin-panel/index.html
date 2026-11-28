@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101827">
   <title>FRANKDEV BUILD — Administration XXX-CORE-VPN</title>
+
   <style>
     :root {
       color-scheme: dark;
@@ -18,7 +19,9 @@
       --accent:#46d6a3;
       --danger:#ff7185;
     }
+
     * { box-sizing:border-box; }
+
     body {
       margin:0;
       min-height:100vh;
@@ -26,7 +29,9 @@
       color:var(--text);
       font:15px/1.5 system-ui,sans-serif;
     }
+
     button,input { font:inherit; }
+
     button {
       cursor:pointer;
       border:0;
@@ -36,17 +41,30 @@
       color:#07150f;
       font-weight:750;
     }
-    button:disabled { opacity:.55; cursor:wait; }
+
+    button:disabled {
+      opacity:.55;
+      cursor:wait;
+    }
+
     .secondary {
       background:var(--panel2);
       color:var(--text);
       border:1px solid var(--line);
     }
+
+    .danger {
+      background:#422a31;
+      color:#ffb6c2;
+      border:1px solid #75404b;
+    }
+
     .wrap {
       width:min(1080px,calc(100% - 28px));
       margin:auto;
       padding:28px 0 56px;
     }
+
     .top {
       display:flex;
       align-items:center;
@@ -54,15 +72,28 @@
       gap:16px;
       margin-bottom:26px;
     }
-    .brand { display:flex; align-items:center; gap:13px; }
-    .logo {
-      width:44px;height:44px;border-radius:13px;
-      display:grid;place-items:center;
-      background:linear-gradient(135deg,#46d6a3,#78aaff);
-      color:#07150f;font-weight:950;font-size:19px;
+
+    .brand {
+      display:flex;
+      align-items:center;
+      gap:13px;
     }
+
+    .logo {
+      width:44px;
+      height:44px;
+      border-radius:13px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#46d6a3,#78aaff);
+      color:#07150f;
+      font-weight:950;
+      font-size:19px;
+    }
+
     .brand strong { display:block;letter-spacing:.08em; }
     .brand small { color:var(--muted); }
+
     .panel {
       background:rgba(18,29,46,.94);
       border:1px solid var(--line);
@@ -70,64 +101,233 @@
       padding:22px;
       box-shadow:0 18px 55px #0003;
     }
-    .login { max-width:440px;margin:9vh auto; }
+
+    .login {
+      max-width:440px;
+      margin:9vh auto;
+    }
+
     .eyebrow {
-      color:var(--accent);font-size:12px;font-weight:800;
-      letter-spacing:.13em;text-transform:uppercase;
+      color:var(--accent);
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.13em;
+      text-transform:uppercase;
     }
-    h1 { font-size:clamp(23px,4vw,32px);line-height:1.15;margin:8px 0; }
-    h2 { font-size:19px;margin:0 0 15px; }
-    p { color:var(--muted);margin:0 0 20px; }
-    .field { display:grid;gap:7px;margin:16px 0; }
-    .field label { font-size:13px;color:var(--muted); }
+
+    h1 {
+      font-size:clamp(23px,4vw,32px);
+      line-height:1.15;
+      margin:8px 0;
+    }
+
+    h2 {
+      font-size:19px;
+      margin:0 0 15px;
+    }
+
+    p {
+      color:var(--muted);
+      margin:0 0 20px;
+    }
+
+    .field {
+      display:grid;
+      gap:7px;
+      margin:16px 0;
+    }
+
+    .field label {
+      font-size:13px;
+      color:var(--muted);
+    }
+
     input {
-      width:100%;padding:13px 14px;border-radius:10px;
-      border:1px solid var(--line);background:#0b1524;color:var(--text);
+      width:100%;
+      padding:13px 14px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:#0b1524;
+      color:var(--text);
     }
-    input:focus { border-color:var(--accent);outline:none; }
+
+    input:focus {
+      border-color:var(--accent);
+      outline:none;
+    }
+
     .full { width:100%; }
-    .notice { min-height:22px;color:var(--danger);font-size:13px;margin-top:12px; }
+
+    .notice {
+      min-height:22px;
+      color:var(--danger);
+      font-size:13px;
+      margin-top:12px;
+    }
+
+    .success { color:var(--accent)!important; }
+
     .hidden { display:none!important; }
+
     .grid {
-      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;margin:20px 0;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin:20px 0;
     }
+
     .stat {
-      background:var(--panel2);border:1px solid var(--line);
-      border-radius:14px;padding:16px;
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px;
     }
-    .stat span { display:block;color:var(--muted);font-size:13px; }
-    .stat strong { display:block;font-size:27px;margin-top:4px; }
+
+    .stat span {
+      display:block;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .stat strong {
+      display:block;
+      font-size:27px;
+      margin-top:4px;
+    }
+
     .toolbar {
-      display:flex;justify-content:space-between;
-      align-items:center;gap:12px;margin:26px 0 14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin:26px 0 14px;
+      flex-wrap:wrap;
     }
+
     .toolbar h2 { margin:0; }
+
     .tablewrap { overflow-x:auto; }
-    table { border-collapse:collapse;width:100%;min-width:520px; }
-    th,td { text-align:left;padding:13px 10px;border-bottom:1px solid var(--line); }
-    th { color:var(--muted);font-size:12px;text-transform:uppercase; }
+
+    table {
+      border-collapse:collapse;
+      width:100%;
+      min-width:650px;
+    }
+
+    th,td {
+      text-align:left;
+      padding:13px 10px;
+      border-bottom:1px solid var(--line);
+    }
+
+    th {
+      color:var(--muted);
+      font-size:12px;
+      text-transform:uppercase;
+    }
+
     .status {
-      display:inline-block;padding:4px 9px;border-radius:999px;
-      background:#163d35;color:#8ff0ca;font-size:12px;
+      display:inline-block;
+      padding:4px 9px;
+      border-radius:999px;
+      background:#163d35;
+      color:#8ff0ca;
+      font-size:12px;
     }
-    .status.off { background:#422a31;color:#ffb6c2; }
-    .empty { padding:24px;text-align:center;color:var(--muted); }
+
+    .status.off {
+      background:#422a31;
+      color:#ffb6c2;
+    }
+
+    .empty {
+      padding:24px;
+      text-align:center;
+      color:var(--muted);
+    }
+
     .create {
-      display:grid;grid-template-columns:1fr 1fr auto;
-      gap:10px;align-items:end;
+      display:grid;
+      grid-template-columns:1fr 1fr auto;
+      gap:10px;
+      align-items:end;
     }
+
     .create .field { margin:0; }
-    .foot { color:var(--muted);font-size:12px;text-align:center;margin-top:26px; }
+
+    .subscription-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      margin:18px 0;
+    }
+
+    .subscription-card {
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:14px;
+      min-width:0;
+    }
+
+    .subscription-card span {
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:5px;
+    }
+
+    .subscription-card strong {
+      overflow-wrap:anywhere;
+    }
+
+    .subscription-actions {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .subscription-actions button {
+      flex:1;
+      min-width:130px;
+    }
+
+    .create-subscription {
+      border-top:1px solid var(--line);
+      margin-top:22px;
+      padding-top:20px;
+    }
+
+    .foot {
+      color:var(--muted);
+      font-size:12px;
+      text-align:center;
+      margin-top:26px;
+    }
+
     @media(max-width:680px) {
-      .grid,.create { grid-template-columns:1fr; }
-      .toolbar { align-items:flex-start;flex-direction:column; }
+      .grid,.create,.subscription-grid {
+        grid-template-columns:1fr;
+      }
+
+      .toolbar {
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
       .panel { padding:17px; }
+
+      .top {
+        align-items:flex-start;
+      }
     }
   </style>
 </head>
+
 <body>
   <main class="wrap">
+
     <header class="top">
       <div class="brand">
         <div class="logo">F</div>
@@ -136,89 +336,279 @@
           <small>XXX-CORE-VPN · Administration</small>
         </div>
       </div>
-      <button id="logoutBtn" class="secondary hidden" type="button">Déconnexion</button>
+
+      <button id="logoutBtn" class="secondary hidden" type="button">
+        Déconnexion
+      </button>
     </header>
+
+    <!-- ADMIN LOGIN -->
 
     <section id="loginView" class="panel login">
       <div class="eyebrow">Espace privé</div>
       <h1>Panneau administrateur</h1>
       <p>Authentification réservée à l'administrateur FRANKDEV.</p>
+
       <form id="loginForm">
         <div class="field">
           <label for="adminSecret">Clé secrète administrateur</label>
-          <input id="adminSecret" type="password" autocomplete="current-password" required maxlength="512" placeholder="Saisir la clé secrète">
+          <input
+            id="adminSecret"
+            type="password"
+            autocomplete="current-password"
+            required
+            maxlength="512"
+            placeholder="Saisir la clé secrète"
+          >
         </div>
-        <button class="full" id="loginBtn" type="submit">Se connecter</button>
+
+        <button class="full" id="loginBtn" type="submit">
+          Se connecter
+        </button>
+
         <div id="loginMessage" class="notice" role="alert"></div>
       </form>
     </section>
 
+    <!-- ADMIN DASHBOARD -->
+
     <section id="dashboardView" class="hidden">
+
       <div class="eyebrow">Vue d'ensemble</div>
       <h1>Tableau de bord</h1>
       <p>Gestion privée des clients XXX-CORE-VPN.</p>
 
       <div class="grid">
-        <div class="stat"><span>Clients enregistrés</span><strong id="totalClients">—</strong></div>
-        <div class="stat"><span>Clients en ligne</span><strong id="onlineClients">—</strong></div>
-        <div class="stat"><span>État de session</span><strong style="font-size:17px;color:var(--accent)">Protégée</strong></div>
+        <div class="stat">
+          <span>Clients enregistrés</span>
+          <strong id="totalClients">—</strong>
+        </div>
+
+        <div class="stat">
+          <span>Clients en ligne</span>
+          <strong id="onlineClients">—</strong>
+        </div>
+
+        <div class="stat">
+          <span>État de session</span>
+          <strong style="font-size:17px;color:var(--accent)">
+            Protégée
+          </strong>
+        </div>
       </div>
+
+      <!-- CREATE CLIENT -->
 
       <section class="panel">
         <h2>Créer un utilisateur</h2>
+
         <form id="createForm" class="create">
           <div class="field">
             <label for="newUsername">Nom d'utilisateur</label>
-            <input id="newUsername" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_.-]+" placeholder="ex. client_001" autocomplete="off">
+            <input
+              id="newUsername"
+              required
+              minlength="3"
+              maxlength="32"
+              pattern="[a-zA-Z0-9_.-]+"
+              placeholder="ex. client_001"
+              autocomplete="off"
+            >
           </div>
+
           <div class="field">
-            <label for="newPassword">Mot de passe (10 caractères minimum)</label>
-            <input id="newPassword" type="password" required minlength="10" maxlength="128" autocomplete="new-password" placeholder="Mot de passe client">
+            <label for="newPassword">
+              Mot de passe (10 caractères minimum)
+            </label>
+            <input
+              id="newPassword"
+              type="password"
+              required
+              minlength="10"
+              maxlength="128"
+              autocomplete="new-password"
+              placeholder="Mot de passe client"
+            >
           </div>
-          <button id="createBtn" type="submit">Créer le client</button>
+
+          <button id="createBtn" type="submit">
+            Créer le client
+          </button>
         </form>
+
         <div id="createMessage" class="notice" role="status"></div>
       </section>
 
+      <!-- SUBSCRIPTION MANAGEMENT -->
+
+      <section id="subscriptionPanel" class="panel hidden">
+
+        <div class="eyebrow">Gestion des forfaits</div>
+        <h2>Abonnement du client</h2>
+
+        <p id="subscriptionClient">Aucun client sélectionné.</p>
+
+        <div id="subscriptionDetails">
+          <p>Informations de l'abonnement non chargées.</p>
+        </div>
+
+        <div class="create-subscription">
+          <h2>Créer ou renouveler un abonnement</h2>
+
+          <form id="subscriptionForm">
+
+            <div class="field">
+              <label for="planName">Nom du forfait</label>
+              <input
+                id="planName"
+                required
+                maxlength="60"
+                placeholder="Ex. Premium 30 jours"
+              >
+            </div>
+
+            <div class="field">
+              <label for="durationDays">Durée en jours</label>
+              <input
+                id="durationDays"
+                type="number"
+                required
+                min="1"
+                max="3650"
+                step="1"
+                value="30"
+              >
+            </div>
+
+            <div class="field">
+              <label for="quotaBytes">
+                Quota en octets (0 = illimité)
+              </label>
+              <input
+                id="quotaBytes"
+                type="number"
+                required
+                min="0"
+                step="1"
+                value="0"
+              >
+            </div>
+
+            <button id="saveSubscriptionBtn" type="submit">
+              Créer / Renouveler
+            </button>
+          </form>
+        </div>
+
+        <div class="subscription-actions">
+          <button
+            id="suspendSubscriptionBtn"
+            class="secondary"
+            type="button"
+          >
+            Suspendre
+          </button>
+
+          <button
+            id="cancelSubscriptionBtn"
+            class="danger"
+            type="button"
+          >
+            Annuler l'abonnement
+          </button>
+
+          <button
+            id="closeSubscriptionBtn"
+            class="secondary"
+            type="button"
+          >
+            Fermer
+          </button>
+        </div>
+
+        <div
+          id="subscriptionMessage"
+          class="notice"
+          role="status"
+        ></div>
+      </section>
+
+      <!-- CLIENT LIST -->
+
       <div class="toolbar">
         <h2>Clients</h2>
-        <button id="refreshBtn" class="secondary" type="button">Actualiser</button>
+
+        <button id="refreshBtn" class="secondary" type="button">
+          Actualiser
+        </button>
       </div>
 
       <section class="panel tablewrap">
+
         <table>
           <thead>
-            <tr><th>Utilisateur</th><th>État</th><th>Création</th></tr>
+            <tr>
+              <th>Utilisateur</th>
+              <th>État</th>
+              <th>Création</th>
+              <th>Abonnement</th>
+            </tr>
           </thead>
+
           <tbody id="clientsBody">
-            <tr><td colspan="3" class="empty">Chargement…</td></tr>
+            <tr>
+              <td colspan="4" class="empty">Chargement…</td>
+            </tr>
           </tbody>
-          </table>
-          <div id="dashboardMessage" class="notice" role="alert"></div>
+        </table>
+
+        <div id="dashboardMessage" class="notice" role="alert"></div>
       </section>
+
     </section>
 
+    <!-- FOOTER -->
+
     <footer class="foot">
-     <div>© 2026 <strong>FRANKDEV BUILD</strong> — XXX-CORE-VPN. Tous droits réservés.</div>
-     <div>Conçu, développé et édité par
-<strong>FRANKDEV BUILD</strong>.</div>
-   </footer>
+      <div>
+        © 2026 <strong>FRANKDEV BUILD</strong>
+        — XXX-CORE-VPN. Tous droits réservés.
+      </div>
+      <div>
+        Conçu, développé et édité par
+        <strong>FRANKDEV BUILD</strong>.
+      </div>
+    </footer>
+
   </main>
 
   <script>
     "use strict";
 
     let adminToken = null;
+    let selectedClientId = null;
+    let selectedClientUsername = null;
+
     const $ = id => document.getElementById(id);
+
     const loginView = $("loginView");
     const dashboardView = $("dashboardView");
     const logoutBtn = $("logoutBtn");
 
+    // API REQUEST
+
     async function api(path, options = {}) {
       const headers = new Headers(options.headers || {});
+
       headers.set("Accept", "application/json");
-      if (options.body) headers.set("Content-Type", "application/json");
-      if (adminToken) headers.set("Authorization", "Bearer " + adminToken);
+
+      if (options.body) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      if (adminToken) {
+        headers.set("Authorization", "Bearer " + adminToken);
+      }
 
       const response = await fetch(path, {
         ...options,
@@ -228,22 +618,92 @@
       });
 
       let data;
-      try { data = await response.json(); } catch { data = {}; }
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
 
       if (!response.ok) {
-        if (response.status === 403 && adminToken) {
+        if (
+          (response.status === 401 || response.status === 403) &&
+          adminToken
+        ) {
           showLogin("Session expirée. Veuillez vous reconnecter.");
         }
-        throw new Error(data.message || data.error || "Erreur serveur (" + response.status + ")");
+
+        throw new Error(
+          data.message ||
+          data.error ||
+          "Erreur serveur (" + response.status + ")"
+        );
       }
+
       return data;
     }
 
+    // FORMAT HELPERS
+
+    function formatBytes(bytes) {
+      const value = Number(bytes || 0);
+
+      if (!Number.isFinite(value) || value < 0) {
+        return "—";
+      }
+
+      if (value === 0) {
+        return "0 B";
+      }
+
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      const index = Math.min(
+        Math.floor(Math.log(value) / Math.log(1024)),
+        units.length - 1
+      );
+
+      return (
+        (value / Math.pow(1024, index)).toFixed(2) +
+        " " +
+        units[index]
+      );
+    }
+
+    function formatDate(timestamp) {
+      if (!timestamp) return "—";
+
+      return new Date(
+        Number(timestamp) * 1000
+      ).toLocaleString("fr-FR");
+    }
+
+    function createInfoCard(label, value) {
+      const card = document.createElement("div");
+      card.className = "subscription-card";
+
+      const title = document.createElement("span");
+      title.textContent = label;
+
+      const content = document.createElement("strong");
+      content.textContent = value;
+
+      card.append(title, content);
+
+      return card;
+    }
+
+    // LOGIN / LOGOUT VIEW
+
     function showLogin(message = "") {
       adminToken = null;
+      selectedClientId = null;
+      selectedClientUsername = null;
+
       dashboardView.classList.add("hidden");
       loginView.classList.remove("hidden");
       logoutBtn.classList.add("hidden");
+
+      $("subscriptionPanel").classList.add("hidden");
       $("loginMessage").textContent = message;
       $("adminSecret").value = "";
     }
@@ -252,19 +712,26 @@
       loginView.classList.add("hidden");
       dashboardView.classList.remove("hidden");
       logoutBtn.classList.remove("hidden");
+
       loadDashboard();
     }
 
+    // ADMIN LOGIN
+
     $("loginForm").addEventListener("submit", async event => {
       event.preventDefault();
+
       const button = $("loginBtn");
+
       button.disabled = true;
       $("loginMessage").textContent = "";
 
       try {
         const result = await api("/admin/login", {
           method: "POST",
-          body: JSON.stringify({ adminSecret: $("adminSecret").value })
+          body: JSON.stringify({
+            adminSecret: $("adminSecret").value
+          })
         });
 
         if (!result.token || result.token_type !== "Bearer") {
@@ -272,18 +739,26 @@
         }
 
         adminToken = result.token;
+
         $("adminSecret").value = "";
+
         showDashboard();
+
       } catch (error) {
         $("loginMessage").textContent = error.message;
+
       } finally {
         button.disabled = false;
       }
     });
 
+    // LOAD CLIENTS AND DASHBOARD
+
     async function loadDashboard() {
       $("dashboardMessage").textContent = "";
-      $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Chargement…</td></tr>';
+
+      $("clientsBody").innerHTML =
+        '<tr><td colspan="4" class="empty">Chargement…</td></tr>';
 
       try {
         const [clientsData, onlineData] = await Promise.all([
@@ -291,42 +766,91 @@
           api("/admin/clients/online")
         ]);
 
-        const clients = Array.isArray(clientsData.clients) ? clientsData.clients : [];
+        const clients = Array.isArray(clientsData.clients)
+          ? clientsData.clients
+          : [];
+
         $("totalClients").textContent = String(clients.length);
-        $("onlineClients").textContent = String(onlineData.online_count ?? 0);
+
+        $("onlineClients").textContent = String(
+          onlineData.online_count ?? 0
+        );
 
         if (!clients.length) {
-          $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Aucun client enregistré.</td></tr>';
+          $("clientsBody").innerHTML =
+            '<tr><td colspan="4" class="empty">Aucun client enregistré.</td></tr>';
+
           return;
         }
 
-        $("clientsBody").replaceChildren(...clients.map(client => {
-          const tr = document.createElement("tr");
-          const username = document.createElement("td");
-          const status = document.createElement("td");
-          const pill = document.createElement("span");
-          const created = document.createElement("td");
+        $("clientsBody").replaceChildren(
+          ...clients.map(client => {
+            const tr = document.createElement("tr");
 
-          username.textContent = client.username || "—";
-          pill.className = "status" + (client.active ? "" : " off");
-          pill.textContent = client.active ? "Actif" : "Désactivé";
-          status.append(pill);
-          created.textContent = client.created_at
-            ? new Date(client.created_at * 1000).toLocaleDateString("fr-FR")
-            : "—";
+            const username = document.createElement("td");
+            const status = document.createElement("td");
+            const pill = document.createElement("span");
+            const created = document.createElement("td");
+            const actions = document.createElement("td");
+            const subscriptionButton = document.createElement("button");
 
-          tr.append(username, status, created);
-          return tr;
-        }));
+            username.textContent = client.username || "—";
+
+            pill.className = "status" + (
+              client.active ? "" : " off"
+            );
+
+            pill.textContent = client.active
+              ? "Actif"
+              : "Désactivé";
+
+            status.append(pill);
+
+            created.textContent = client.created_at
+              ? new Date(
+                  client.created_at * 1000
+                ).toLocaleDateString("fr-FR")
+              : "—";
+
+            subscriptionButton.type = "button";
+            subscriptionButton.className = "secondary";
+            subscriptionButton.textContent = "Gérer";
+
+            subscriptionButton.addEventListener("click", () => {
+              openSubscription(
+                client.id,
+                client.username
+              );
+            });
+
+            actions.append(subscriptionButton);
+
+            tr.append(
+              username,
+              status,
+              created,
+              actions
+            );
+
+            return tr;
+          })
+        );
+
       } catch (error) {
-        $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Impossible de charger les clients.</td></tr>';
+        $("clientsBody").innerHTML =
+          '<tr><td colspan="4" class="empty">Impossible de charger les clients.</td></tr>';
+
         $("dashboardMessage").textContent = error.message;
       }
     }
 
+    // CREATE CLIENT
+
     $("createForm").addEventListener("submit", async event => {
       event.preventDefault();
+
       const button = $("createBtn");
+
       button.disabled = true;
       $("createMessage").textContent = "";
 
@@ -339,30 +863,346 @@
           })
         });
 
-        $("createMessage").style.color = "var(--accent)";
+        $("createMessage").classList.add("success");
+
         $("createMessage").textContent =
-          result.status === "created" ? "Client créé avec succès." : "Opération terminée.";
+          result.status === "created"
+            ? "Client créé avec succès."
+            : "Opération terminée.";
 
         $("createForm").reset();
+
         await loadDashboard();
+
       } catch (error) {
-        $("createMessage").style.color = "var(--danger)";
+        $("createMessage").classList.remove("success");
         $("createMessage").textContent = error.message;
+
       } finally {
         button.disabled = false;
       }
     });
 
+    // OPEN SUBSCRIPTION PANEL
+
+    async function openSubscription(clientId, username) {
+      selectedClientId = clientId;
+      selectedClientUsername = username;
+
+      $("subscriptionPanel").classList.remove("hidden");
+
+      $("subscriptionClient").textContent =
+        "Client : " + username;
+
+      $("subscriptionDetails").textContent =
+        "Chargement des informations…";
+
+      $("subscriptionMessage").textContent = "";
+
+      $("subscriptionMessage").classList.remove("success");
+
+      $("subscriptionPanel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+      await loadSubscription();
+    }
+
+    // LOAD SUBSCRIPTION
+
+    async function loadSubscription() {
+      if (!selectedClientId) return;
+
+      const clientId = selectedClientId;
+
+      $("subscriptionDetails").textContent =
+        "Chargement des informations…";
+
+      try {
+        const result = await api(
+          "/admin/clients/" +
+          encodeURIComponent(clientId) +
+          "/subscription"
+        );
+
+        if (clientId !== selectedClientId) return;
+
+        const details = $("subscriptionDetails");
+
+        details.replaceChildren();
+
+        const subscription = result.subscription;
+        const periodUsage = result.subscription_usage;
+        const lifetimeUsage = result.lifetime_usage;
+
+        if (!subscription) {
+          const message = document.createElement("p");
+
+          message.textContent =
+            "Aucun abonnement enregistré pour ce client.";
+
+          details.append(message);
+
+        } else {
+          const totalPeriodUsage =
+            Number(periodUsage?.upload_bytes || 0) +
+            Number(periodUsage?.download_bytes || 0);
+
+          const quota = Number(subscription.quota_bytes || 0);
+
+          let remaining = "Illimité";
+
+          if (quota > 0) {
+            remaining = formatBytes(
+              Math.max(0, quota - totalPeriodUsage)
+            );
+          }
+
+          const grid = document.createElement("div");
+          grid.className = "subscription-grid";
+
+          grid.append(
+            createInfoCard(
+              "Forfait",
+              subscription.plan_name
+            ),
+            createInfoCard(
+              "Statut",
+              subscription.status
+            ),
+            createInfoCard(
+              "Début",
+              formatDate(subscription.starts_at)
+            ),
+            createInfoCard(
+              "Expiration",
+              formatDate(subscription.expires_at)
+            ),
+            createInfoCard(
+              "Quota",
+              quota === 0 ? "Illimité" : formatBytes(quota)
+            ),
+            createInfoCard(
+              "Consommation période",
+              formatBytes(totalPeriodUsage)
+            ),
+            createInfoCard(
+              "Upload période",
+              formatBytes(periodUsage?.upload_bytes)
+            ),
+            createInfoCard(
+              "Download période",
+              formatBytes(periodUsage?.download_bytes)
+            ),
+            createInfoCard(
+              "Quota restant",
+              remaining
+            )
+          );
+
+          details.append(grid);
+        }
+
+        const lifetimeTitle = document.createElement("h2");
+        lifetimeTitle.textContent = "Consommation totale historique";
+
+        const lifetimeGrid = document.createElement("div");
+        lifetimeGrid.className = "subscription-grid";
+
+        lifetimeGrid.append(
+          createInfoCard(
+            "Upload total",
+            formatBytes(lifetimeUsage?.upload_bytes)
+          ),
+          createInfoCard(
+            "Download total",
+            formatBytes(lifetimeUsage?.download_bytes)
+          ),
+          createInfoCard(
+            "Total consommé",
+            formatBytes(
+              Number(lifetimeUsage?.upload_bytes || 0) +
+              Number(lifetimeUsage?.download_bytes || 0)
+            )
+          )
+        );
+
+        details.append(lifetimeTitle, lifetimeGrid);
+
+      } catch (error) {
+        $("subscriptionDetails").textContent =
+          "Impossible de charger l'abonnement : " + error.message;
+      }
+    }
+
+    // CREATE OR RENEW SUBSCRIPTION
+
+    $("subscriptionForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      if (!selectedClientId) {
+        $("subscriptionMessage").textContent =
+          "Veuillez sélectionner un client.";
+
+        return;
+      }
+
+      const button = $("saveSubscriptionBtn");
+
+      button.disabled = true;
+
+      $("subscriptionMessage").textContent = "";
+      $("subscriptionMessage").classList.remove("success");
+
+      const durationDays = Number($("durationDays").value);
+      const quotaBytes = Number($("quotaBytes").value);
+
+      try {
+        if (
+          !Number.isSafeInteger(durationDays) ||
+          durationDays < 1 ||
+          durationDays > 3650
+        ) {
+          throw new Error("La durée doit être comprise entre 1 et 3650 jours.");
+        }
+
+        if (
+          !Number.isSafeInteger(quotaBytes) ||
+          quotaBytes < 0
+        ) {
+          throw new Error("Le quota doit être un nombre entier positif ou égal à zéro.");
+        }
+
+        const result = await api(
+          "/admin/clients/" +
+          encodeURIComponent(selectedClientId) +
+          "/subscription",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              plan_name: $("planName").value.trim(),
+              duration_days: durationDays,
+              quota_bytes: quotaBytes
+            })
+          }
+        );
+
+        $("subscriptionMessage").classList.add("success");
+
+        $("subscriptionMessage").textContent =
+          result.message || "Abonnement créé avec succès.";
+
+        await loadSubscription();
+
+      } catch (error) {
+        $("subscriptionMessage").textContent = error.message;
+
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    // SUSPEND OR CANCEL SUBSCRIPTION
+
+    async function changeSubscriptionStatus(status) {
+      if (!selectedClientId) {
+        $("subscriptionMessage").textContent =
+          "Veuillez sélectionner un client.";
+
+        return;
+      }
+
+      const action = status === "suspended"
+        ? "suspendre"
+        : "annuler";
+
+      if (!confirm(
+        "Voulez-vous vraiment " +
+        action +
+        " l'abonnement de " +
+        selectedClientUsername +
+        " ?"
+      )) {
+        return;
+      }
+
+      const suspendButton = $("suspendSubscriptionBtn");
+      const cancelButton = $("cancelSubscriptionBtn");
+
+      suspendButton.disabled = true;
+      cancelButton.disabled = true;
+
+      $("subscriptionMessage").textContent = "";
+      $("subscriptionMessage").classList.remove("success");
+
+      try {
+        const result = await api(
+          "/admin/clients/" +
+          encodeURIComponent(selectedClientId) +
+          "/subscription",
+          {
+            method: "PATCH",
+            body: JSON.stringify({ status })
+          }
+        );
+
+        $("subscriptionMessage").classList.add("success");
+
+        $("subscriptionMessage").textContent =
+          status === "suspended"
+            ? "Abonnement suspendu."
+            : "Abonnement annulé.";
+
+        await loadSubscription();
+
+      } catch (error) {
+        $("subscriptionMessage").textContent = error.message;
+
+      } finally {
+        suspendButton.disabled = false;
+        cancelButton.disabled = false;
+      }
+    }
+
+    $("suspendSubscriptionBtn").addEventListener("click", () => {
+      changeSubscriptionStatus("suspended");
+    });
+
+    $("cancelSubscriptionBtn").addEventListener("click", () => {
+      changeSubscriptionStatus("cancelled");
+    });
+
+    // CLOSE SUBSCRIPTION PANEL
+
+    $("closeSubscriptionBtn").addEventListener("click", () => {
+      $("subscriptionPanel").classList.add("hidden");
+
+      selectedClientId = null;
+      selectedClientUsername = null;
+
+      $("subscriptionMessage").textContent = "";
+    });
+
+    // REFRESH DASHBOARD
+
     $("refreshBtn").addEventListener("click", loadDashboard);
+
+    // ADMIN LOGOUT
 
     logoutBtn.addEventListener("click", async () => {
       try {
-        await api("/admin/logout", { method: "POST" });
+        await api("/admin/logout", {
+          method: "POST"
+        });
+
       } catch (error) {
         console.warn("Logout API:", error.message);
       }
+
       showLogin("Vous êtes déconnecté.");
     });
+
   </script>
 </body>
 </html>
