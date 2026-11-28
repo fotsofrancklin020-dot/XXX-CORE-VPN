@@ -380,24 +380,26 @@ export default {
           const passwordHash = await hashPassword(password);
           const createdAt = Math.floor(Date.now() / 1000);
 
+          // Création du client et journalisation dans une transaction D1.
           await env.DB.batch([
-  env.DB.prepare(
-    `INSERT INTO clients
-     (id, username, password_hash, active, created_at)
-     VALUES (?, ?, ?, 1, ?)`
-  ).bind(id, username, passwordHash, createdAt),
+            env.DB.prepare(
+              `INSERT INTO clients
+               (id, username, password_hash, active, created_at)
+               VALUES (?, ?, ?, 1, ?)`
+            ).bind(id, username, passwordHash, createdAt),
 
-  env.DB.prepare(
-    `INSERT INTO admin_logs
-     (id, action, details, created_at)
-     VALUES (?, ?, ?, ?)`
-  ).bind(
-    crypto.randomUUID(),
-    "CLIENT_CREATED",
-    `Client created: ${username}`,
-    createdAt
-  ),
-]);
+            env.DB.prepare(
+              `INSERT INTO admin_logs
+               (id, action, details, created_at)
+               VALUES (?, ?, ?, ?)`
+            ).bind(
+              crypto.randomUUID(),
+              "CLIENT_CREATED",
+              `Client created: ${username}`,
+              createdAt
+            ),
+          ]);
+
           return json({
             status: "created",
             client: {
@@ -434,49 +436,49 @@ export default {
       }
     }
 
-// ADMIN ONLINE CLIENTS
-if (
-  request.method === "GET" &&
-  url.pathname === "/admin/clients/online"
-) {
-  const authError = await requireAdmin(request, env);
-  if (authError) return authError;
+    // ADMIN ONLINE CLIENTS
+    if (
+      request.method === "GET" &&
+      url.pathname === "/admin/clients/online"
+    ) {
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
 
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const onlineSince = now - 90;
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const onlineSince = now - 90;
 
-    const result = await env.DB.prepare(
-      `SELECT
-         s.id AS session_id,
-         s.client_id,
-         c.username,
-         s.connected_at,
-         s.last_seen_at
-       FROM client_sessions s
-       INNER JOIN clients c ON c.id = s.client_id
-       WHERE s.revoked = 0
-         AND s.last_seen_at >= ?
-         AND c.active = 1
-       ORDER BY s.last_seen_at DESC`
-    )
-      .bind(onlineSince)
-      .all();
+        const result = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             c.username,
+             s.connected_at,
+             s.last_seen_at
+           FROM client_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.revoked = 0
+             AND s.last_seen_at >= ?
+             AND c.active = 1
+           ORDER BY s.last_seen_at DESC`
+        )
+          .bind(onlineSince)
+          .all();
 
-    return json({
-      status: "ok",
-      online_count: result.results.length,
-      online_since: onlineSince,
-      clients: result.results,
-    });
-  } catch (error) {
-    console.error("ONLINE_CLIENTS_ERROR:", error);
+        return json({
+          status: "ok",
+          online_count: result.results.length,
+          online_since: onlineSince,
+          clients: result.results,
+        });
+      } catch (error) {
+        console.error("ONLINE_CLIENTS_ERROR:", error);
 
-    return json({
-      error: "Unable to retrieve online clients",
-    }, 500);
-  }
-}
+        return json({
+          error: "Unable to retrieve online clients",
+        }, 500);
+      }
+    }
 
     // ADMIN DISCONNECT CLIENT SESSION
     const disconnectMatch = url.pathname.match(
@@ -494,27 +496,33 @@ if (
       const now = Math.floor(Date.now() / 1000);
 
       try {
-        const result = await env.DB.prepare(
-          `UPDATE client_sessions
-           SET revoked = 1,
-               disconnected_at = ?
-           WHERE id = ?
-             AND revoked = 0`
-        )
-          .bind(now, sessionId)
-          .run();
+        const results = await env.DB.batch([
+          env.DB.prepare(
+            `UPDATE client_sessions
+             SET revoked = 1,
+                 disconnected_at = ?
+             WHERE id = ?
+               AND revoked = 0`
+          ).bind(now, sessionId),
 
-        if (result.meta.changes === 0) {
+          env.DB.prepare(
+            `INSERT INTO admin_logs
+             (id, action, details, created_at)
+             SELECT ?, ?, ?, ?
+             WHERE changes() > 0`
+          ).bind(
+            crypto.randomUUID(),
+            "CLIENT_SESSION_DISCONNECTED",
+            `Client session disconnected: ${sessionId}`,
+            now
+          ),
+        ]);
+
+        if (results[0].meta.changes === 0) {
           return json({
             error: "Session not found or already disconnected",
           }, 404);
         }
-
-        await logAdminAction(
-          env,
-          "CLIENT_SESSION_DISCONNECTED",
-          `Client session disconnected: ${sessionId}`
-        );
 
         return json({
           status: "disconnected",
@@ -667,8 +675,8 @@ if (
       const now = Math.floor(Date.now() / 1000);
 
       try {
-        // Le changement de statut et la révocation des sessions
-        // sont regroupés dans une transaction D1.
+        // Modification du statut, révocation des sessions
+        // et journalisation dans une transaction D1.
         const statements = [
           env.DB.prepare(
             `UPDATE clients
@@ -689,6 +697,23 @@ if (
           );
         }
 
+        statements.push(
+          env.DB.prepare(
+            `INSERT INTO admin_logs
+             (id, action, details, created_at)
+             SELECT ?, ?, ?, ?
+             WHERE EXISTS (
+               SELECT 1 FROM clients WHERE id = ?
+             )`
+          ).bind(
+            crypto.randomUUID(),
+            active ? "CLIENT_ENABLED" : "CLIENT_DISABLED",
+            `Client ${clientId} ${active ? "enabled" : "disabled"}`,
+            now,
+            clientId
+          )
+        );
+
         const results = await env.DB.batch(statements);
 
         if (results[0].meta.changes === 0) {
@@ -698,12 +723,6 @@ if (
         const revokedSessionCount = !active
           ? results[1].meta.changes
           : 0;
-
-        await logAdminAction(
-          env,
-          active ? "CLIENT_ENABLED" : "CLIENT_DISABLED",
-          `Client ${clientId} ${active ? "enabled" : "disabled"}; sessions revoked: ${revokedSessionCount}`
-        );
 
         return json({
           status: "updated",
