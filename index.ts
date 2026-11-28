@@ -741,6 +741,313 @@ export default {
       }
     }
 
+    // ADMIN CLIENT SUBSCRIPTION MANAGEMENT
+    const subscriptionMatch = url.pathname.match(
+      /^\/admin\/clients\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/subscription$/i
+    );
+
+    if (
+      subscriptionMatch &&
+      ["GET", "POST", "PATCH"].includes(request.method)
+    ) {
+      const authError = await requireAdmin(request, env);
+      if (authError) return authError;
+
+      const clientId = subscriptionMatch[1];
+      const now = Math.floor(Date.now() / 1000);
+
+      try {
+        const client = await env.DB.prepare(
+          `SELECT id, username, active
+           FROM clients
+           WHERE id = ?
+           LIMIT 1`
+        )
+          .bind(clientId)
+          .first<{
+            id: string;
+            username: string;
+            active: number;
+          }>();
+
+        if (!client) {
+          return json({ error: "Client not found" }, 404);
+        }
+
+        // CONSULT SUBSCRIPTION
+        if (request.method === "GET") {
+          const subscription = await env.DB.prepare(
+            `SELECT
+               id,
+               client_id,
+               plan_name,
+               status,
+               starts_at,
+               expires_at,
+               quota_bytes,
+               created_at,
+               updated_at
+             FROM client_subscriptions
+             WHERE client_id = ?
+             ORDER BY created_at DESC
+             LIMIT 1`
+          )
+            .bind(clientId)
+            .first();
+
+          const lifetimeUsage = await env.DB.prepare(
+            `SELECT upload_bytes, download_bytes, updated_at
+             FROM client_usage_totals
+             WHERE client_id = ?
+             LIMIT 1`
+          )
+            .bind(clientId)
+            .first();
+
+          let subscriptionUsage = null;
+
+          if (subscription) {
+            subscriptionUsage = await env.DB.prepare(
+              `SELECT upload_bytes, download_bytes, updated_at
+               FROM client_subscription_usage
+               WHERE subscription_id = ?
+               LIMIT 1`
+            )
+              .bind((subscription as { id: string }).id)
+              .first();
+          }
+
+          return json({
+            status: "ok",
+            client: {
+              id: client.id,
+              username: client.username,
+              active: client.active === 1,
+            },
+            subscription,
+            subscription_usage: subscriptionUsage,
+            lifetime_usage: lifetimeUsage,
+          });
+        }
+
+        // CREATE OR RENEW SUBSCRIPTION
+        if (request.method === "POST") {
+          let body: {
+            plan_name?: string;
+            duration_days?: number;
+            quota_bytes?: number;
+          };
+
+          try {
+            body = await request.json();
+          } catch {
+            return json({ error: "Invalid JSON" }, 400);
+          }
+
+          const planName = body.plan_name?.trim();
+          const durationDays = body.duration_days;
+          const quotaBytes = body.quota_bytes;
+
+          if (
+            !planName ||
+            planName.length > 60
+          ) {
+            return json({
+              error: "Plan name must contain 1 to 60 characters",
+            }, 400);
+          }
+
+          if (
+            !Number.isSafeInteger(durationDays) ||
+            durationDays! < 1 ||
+            durationDays! > 3650
+          ) {
+            return json({
+              error: "Duration must be between 1 and 3650 days",
+            }, 400);
+          }
+
+          if (
+            !Number.isSafeInteger(quotaBytes) ||
+            quotaBytes! < 0
+          ) {
+            return json({
+              error: "Quota must be a non-negative safe integer",
+            }, 400);
+          }
+
+          const subscriptionId = crypto.randomUUID();
+          const startsAt = now;
+          const expiresAt = now + durationDays! * 86400;
+
+          await env.DB.batch([
+            env.DB.prepare(
+              `UPDATE client_subscriptions
+               SET status = 'expired',
+                   updated_at = ?
+               WHERE client_id = ?
+                 AND status = 'active'`
+            ).bind(now, clientId),
+
+            env.DB.prepare(
+              `INSERT INTO client_subscriptions (
+                 id,
+                 client_id,
+                 plan_name,
+                 status,
+                 starts_at,
+                 expires_at,
+                 quota_bytes,
+                 created_at,
+                 updated_at
+               )
+               VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)`
+            ).bind(
+              subscriptionId,
+              clientId,
+              planName,
+              startsAt,
+              expiresAt,
+              quotaBytes,
+              now,
+              now
+            ),
+
+            env.DB.prepare(
+              `INSERT INTO client_subscription_usage (
+                 subscription_id,
+                 client_id,
+                 upload_bytes,
+                 download_bytes,
+                 updated_at
+               )
+               VALUES (?, ?, 0, 0, ?)`
+            ).bind(subscriptionId, clientId, now),
+
+            env.DB.prepare(
+              `INSERT INTO admin_logs (
+                 id,
+                 action,
+                 details,
+                 created_at
+               )
+               VALUES (?, ?, ?, ?)`
+            ).bind(
+              crypto.randomUUID(),
+              "SUBSCRIPTION_CREATED",
+              `Subscription ${subscriptionId} created for ${client.username}; plan=${planName}; duration=${durationDays} days; quota=${quotaBytes} bytes`,
+              now
+            ),
+          ]);
+
+          return json({
+            status: "created",
+            subscription: {
+              id: subscriptionId,
+              client_id: clientId,
+              plan_name: planName,
+              status: "active",
+              starts_at: startsAt,
+              expires_at: expiresAt,
+              quota_bytes: quotaBytes,
+            },
+            message: "Subscription created and usage period initialized",
+          }, 201);
+        }
+
+        // SUSPEND OR CANCEL ACTIVE SUBSCRIPTION
+        if (request.method === "PATCH") {
+          let body: {
+            status?: string;
+          };
+
+          try {
+            body = await request.json();
+          } catch {
+            return json({ error: "Invalid JSON" }, 400);
+          }
+
+          if (
+            body.status !== "suspended" &&
+            body.status !== "cancelled"
+          ) {
+            return json({
+              error: "Status must be suspended or cancelled",
+            }, 400);
+          }
+
+          const results = await env.DB.batch([
+            env.DB.prepare(
+              `UPDATE client_subscriptions
+               SET status = ?,
+                   updated_at = ?
+               WHERE client_id = ?
+                 AND status = 'active'`
+            ).bind(body.status, now, clientId),
+
+            env.DB.prepare(
+              `UPDATE client_auth_sessions
+               SET revoked = 1
+               WHERE client_id = ?
+                 AND revoked = 0`
+            ).bind(clientId),
+
+            env.DB.prepare(
+              `UPDATE client_sessions
+               SET revoked = 1,
+                   disconnected_at = ?
+               WHERE client_id = ?
+                 AND revoked = 0`
+            ).bind(now, clientId),
+
+            env.DB.prepare(
+              `INSERT INTO admin_logs (
+                 id,
+                 action,
+                 details,
+                 created_at
+               )
+               SELECT ?, ?, ?, ?
+               WHERE EXISTS (
+                 SELECT 1
+                 FROM client_subscriptions
+                 WHERE client_id = ?
+                   AND status = ?
+               )`
+            ).bind(
+              crypto.randomUUID(),
+              body.status === "suspended"
+                ? "SUBSCRIPTION_SUSPENDED"
+                : "SUBSCRIPTION_CANCELLED",
+              `Subscription ${body.status} for ${client.username}`,
+              now,
+              clientId,
+              body.status
+            ),
+          ]);
+
+          if (results[0].meta.changes === 0) {
+            return json({
+              error: "No active subscription found for this client",
+            }, 404);
+          }
+
+          return json({
+            status: body.status,
+            client_id: clientId,
+            revoked_auth_sessions: results[1].meta.changes,
+            revoked_vpn_sessions: results[2].meta.changes,
+          });
+        }
+      } catch (error) {
+        console.error("SUBSCRIPTION_MANAGEMENT_ERROR:", error);
+
+        return json({
+          error: "Subscription operation failed",
+        }, 500);
+      }
+    }
+
     // STATIC ADMIN PANEL ASSETS
     if (
       request.method === "GET" ||
