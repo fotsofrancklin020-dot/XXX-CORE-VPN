@@ -1165,6 +1165,157 @@ export default {
       }
     }
 
+    // CLIENT SUBSCRIPTION - ANDROID
+    if (
+      request.method === "GET" &&
+      url.pathname === "/client/subscription"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({ error: "Unauthorized" }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({ error: "Invalid token" }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        const session = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.client_id,
+             c.username,
+             c.active
+           FROM client_auth_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.token_hash = ?
+             AND s.revoked = 0
+             AND s.expires_at > ?
+           LIMIT 1`
+        )
+          .bind(tokenHash, now)
+          .first<{
+            session_id: string;
+            client_id: string;
+            username: string;
+            active: number;
+          }>();
+
+        if (!session) {
+          return json({ error: "Invalid or expired session" }, 401);
+        }
+
+        if (session.active !== 1) {
+          return json({ error: "Account disabled" }, 403);
+        }
+
+        const subscription = await env.DB.prepare(
+          `SELECT
+             id,
+             plan_name,
+             status,
+             starts_at,
+             expires_at,
+             quota_bytes,
+             created_at,
+             updated_at
+           FROM client_subscriptions
+           WHERE client_id = ?
+             AND status = 'active'
+             AND starts_at <= ?
+             AND expires_at > ?
+           ORDER BY created_at DESC
+           LIMIT 1`
+        )
+          .bind(session.client_id, now, now)
+          .first<{
+            id: string;
+            plan_name: string;
+            status: string;
+            starts_at: number;
+            expires_at: number;
+            quota_bytes: number;
+            created_at: number;
+            updated_at: number;
+          }>();
+
+        if (!subscription) {
+          return json({ error: "No active subscription" }, 403);
+        }
+
+        const usage = await env.DB.prepare(
+          `SELECT
+             upload_bytes,
+             download_bytes
+           FROM client_subscription_usage
+           WHERE subscription_id = ?
+           LIMIT 1`
+        )
+          .bind(subscription.id)
+          .first<{
+            upload_bytes: number;
+            download_bytes: number;
+          }>();
+
+        const uploadBytes = usage?.upload_bytes ?? 0;
+        const downloadBytes = usage?.download_bytes ?? 0;
+        const totalBytes = uploadBytes + downloadBytes;
+
+        const unlimited = subscription.quota_bytes === 0;
+
+        const remainingBytes = unlimited
+          ? null
+          : Math.max(0, subscription.quota_bytes - totalBytes);
+
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET last_seen_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, session.session_id)
+          .run();
+
+        return json({
+          status: "success",
+          client: {
+            id: session.client_id,
+            username: session.username,
+          },
+          subscription: {
+            id: subscription.id,
+            plan_name: subscription.plan_name,
+            status: subscription.status,
+            starts_at: subscription.starts_at,
+            expires_at: subscription.expires_at,
+            quota_bytes: subscription.quota_bytes,
+            created_at: subscription.created_at,
+            updated_at: subscription.updated_at,
+            usage: {
+              upload_bytes: uploadBytes,
+              download_bytes: downloadBytes,
+              total_bytes: totalBytes,
+              remaining_bytes: remainingBytes,
+              unlimited,
+            },
+          },
+        });
+      } catch (error) {
+        console.error("CLIENT_SUBSCRIPTION_ERROR:", error);
+
+        return json(
+          { error: "Unable to retrieve client subscription" },
+          500
+        );
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
