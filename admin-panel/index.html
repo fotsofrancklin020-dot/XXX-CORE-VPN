@@ -1,0 +1,364 @@
+
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>FRANKDEV BUILD — Administration XXX-CORE-VPN</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg:#0b1220;
+      --panel:#121d2e;
+      --panel2:#18263a;
+      --line:#29394f;
+      --text:#edf3fb;
+      --muted:#9aabc0;
+      --accent:#46d6a3;
+      --danger:#ff7185;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      min-height:100vh;
+      background:radial-gradient(circle at 15% 0%,#182b43 0,transparent 38%),var(--bg);
+      color:var(--text);
+      font:15px/1.5 system-ui,sans-serif;
+    }
+    button,input { font:inherit; }
+    button {
+      cursor:pointer;
+      border:0;
+      border-radius:10px;
+      padding:11px 16px;
+      background:var(--accent);
+      color:#07150f;
+      font-weight:750;
+    }
+    button:disabled { opacity:.55; cursor:wait; }
+    .secondary {
+      background:var(--panel2);
+      color:var(--text);
+      border:1px solid var(--line);
+    }
+    .wrap {
+      width:min(1080px,calc(100% - 28px));
+      margin:auto;
+      padding:28px 0 56px;
+    }
+    .top {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:26px;
+    }
+    .brand { display:flex; align-items:center; gap:13px; }
+    .logo {
+      width:44px;height:44px;border-radius:13px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,#46d6a3,#78aaff);
+      color:#07150f;font-weight:950;font-size:19px;
+    }
+    .brand strong { display:block;letter-spacing:.08em; }
+    .brand small { color:var(--muted); }
+    .panel {
+      background:rgba(18,29,46,.94);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:22px;
+      box-shadow:0 18px 55px #0003;
+    }
+    .login { max-width:440px;margin:9vh auto; }
+    .eyebrow {
+      color:var(--accent);font-size:12px;font-weight:800;
+      letter-spacing:.13em;text-transform:uppercase;
+    }
+    h1 { font-size:clamp(23px,4vw,32px);line-height:1.15;margin:8px 0; }
+    h2 { font-size:19px;margin:0 0 15px; }
+    p { color:var(--muted);margin:0 0 20px; }
+    .field { display:grid;gap:7px;margin:16px 0; }
+    .field label { font-size:13px;color:var(--muted); }
+    input {
+      width:100%;padding:13px 14px;border-radius:10px;
+      border:1px solid var(--line);background:#0b1524;color:var(--text);
+    }
+    input:focus { border-color:var(--accent);outline:none; }
+    .full { width:100%; }
+    .notice { min-height:22px;color:var(--danger);font-size:13px;margin-top:12px; }
+    .hidden { display:none!important; }
+    .grid {
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;margin:20px 0;
+    }
+    .stat {
+      background:var(--panel2);border:1px solid var(--line);
+      border-radius:14px;padding:16px;
+    }
+    .stat span { display:block;color:var(--muted);font-size:13px; }
+    .stat strong { display:block;font-size:27px;margin-top:4px; }
+    .toolbar {
+      display:flex;justify-content:space-between;
+      align-items:center;gap:12px;margin:26px 0 14px;
+    }
+    .toolbar h2 { margin:0; }
+    .tablewrap { overflow-x:auto; }
+    table { border-collapse:collapse;width:100%;min-width:520px; }
+    th,td { text-align:left;padding:13px 10px;border-bottom:1px solid var(--line); }
+    th { color:var(--muted);font-size:12px;text-transform:uppercase; }
+    .status {
+      display:inline-block;padding:4px 9px;border-radius:999px;
+      background:#163d35;color:#8ff0ca;font-size:12px;
+    }
+    .status.off { background:#422a31;color:#ffb6c2; }
+    .empty { padding:24px;text-align:center;color:var(--muted); }
+    .create {
+      display:grid;grid-template-columns:1fr 1fr auto;
+      gap:10px;align-items:end;
+    }
+    .create .field { margin:0; }
+    .foot { color:var(--muted);font-size:12px;text-align:center;margin-top:26px; }
+    @media(max-width:680px) {
+      .grid,.create { grid-template-columns:1fr; }
+      .toolbar { align-items:flex-start;flex-direction:column; }
+      .panel { padding:17px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div>
+          <strong>FRANKDEV BUILD</strong>
+          <small>XXX-CORE-VPN · Administration</small>
+        </div>
+      </div>
+      <button id="logoutBtn" class="secondary hidden" type="button">Déconnexion</button>
+    </header>
+
+    <section id="loginView" class="panel login">
+      <div class="eyebrow">Espace privé</div>
+      <h1>Panneau administrateur</h1>
+      <p>Authentification réservée à l'administrateur FRANKDEV.</p>
+      <form id="loginForm">
+        <div class="field">
+          <label for="adminSecret">Clé secrète administrateur</label>
+          <input id="adminSecret" type="password" autocomplete="current-password" required maxlength="512" placeholder="Saisir la clé secrète">
+        </div>
+        <button class="full" id="loginBtn" type="submit">Se connecter</button>
+        <div id="loginMessage" class="notice" role="alert"></div>
+      </form>
+    </section>
+
+    <section id="dashboardView" class="hidden">
+      <div class="eyebrow">Vue d'ensemble</div>
+      <h1>Tableau de bord</h1>
+      <p>Gestion privée des clients XXX-CORE-VPN.</p>
+
+      <div class="grid">
+        <div class="stat"><span>Clients enregistrés</span><strong id="totalClients">—</strong></div>
+        <div class="stat"><span>Clients en ligne</span><strong id="onlineClients">—</strong></div>
+        <div class="stat"><span>État de session</span><strong style="font-size:17px;color:var(--accent)">Protégée</strong></div>
+      </div>
+
+      <section class="panel">
+        <h2>Créer un utilisateur</h2>
+        <form id="createForm" class="create">
+          <div class="field">
+            <label for="newUsername">Nom d'utilisateur</label>
+            <input id="newUsername" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_.-]+" placeholder="ex. client_001" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="newPassword">Mot de passe (10 caractères minimum)</label>
+            <input id="newPassword" type="password" required minlength="10" maxlength="128" autocomplete="new-password" placeholder="Mot de passe client">
+          </div>
+          <button id="createBtn" type="submit">Créer le client</button>
+        </form>
+        <div id="createMessage" class="notice" role="status"></div>
+      </section>
+
+      <div class="toolbar">
+        <h2>Clients</h2>
+        <button id="refreshBtn" class="secondary" type="button">Actualiser</button>
+      </div>
+
+      <section class="panel tablewrap">
+        <table>
+          <thead>
+            <tr><th>Utilisateur</th><th>État</th><th>Création</th></tr>
+          </thead>
+          <tbody id="clientsBody">
+            <tr><td colspan="3" class="empty">Chargement…</td></tr>
+          </tbody>
+        </table>
+        <div id="dashboardMessage" class="notice" role="alert"></div>
+      </section>
+    </section>
+
+    <div class="foot">FRANKDEV BUILD · Interface administrateur indépendante · Ne partagez jamais votre clé secrète.</div>
+  </main>
+
+  <script>
+    "use strict";
+
+    let adminToken = null;
+    const $ = id => document.getElementById(id);
+    const loginView = $("loginView");
+    const dashboardView = $("dashboardView");
+    const logoutBtn = $("logoutBtn");
+
+    async function api(path, options = {}) {
+      const headers = new Headers(options.headers || {});
+      headers.set("Accept", "application/json");
+      if (options.body) headers.set("Content-Type", "application/json");
+      if (adminToken) headers.set("Authorization", "Bearer " + adminToken);
+
+      const response = await fetch(path, {
+        ...options,
+        headers,
+        cache: "no-store",
+        credentials: "same-origin"
+      });
+
+      let data;
+      try { data = await response.json(); } catch { data = {}; }
+
+      if (!response.ok) {
+        if (response.status === 403 && adminToken) {
+          showLogin("Session expirée. Veuillez vous reconnecter.");
+        }
+        throw new Error(data.message || data.error || "Erreur serveur (" + response.status + ")");
+      }
+      return data;
+    }
+
+    function showLogin(message = "") {
+      adminToken = null;
+      dashboardView.classList.add("hidden");
+      loginView.classList.remove("hidden");
+      logoutBtn.classList.add("hidden");
+      $("loginMessage").textContent = message;
+      $("adminSecret").value = "";
+    }
+
+    function showDashboard() {
+      loginView.classList.add("hidden");
+      dashboardView.classList.remove("hidden");
+      logoutBtn.classList.remove("hidden");
+      loadDashboard();
+    }
+
+    $("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = $("loginBtn");
+      button.disabled = true;
+      $("loginMessage").textContent = "";
+
+      try {
+        const result = await api("/admin/login", {
+          method: "POST",
+          body: JSON.stringify({ adminSecret: $("adminSecret").value })
+        });
+
+        if (!result.token || result.token_type !== "Bearer") {
+          throw new Error("Réponse d'authentification invalide.");
+        }
+
+        adminToken = result.token;
+        $("adminSecret").value = "";
+        showDashboard();
+      } catch (error) {
+        $("loginMessage").textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    async function loadDashboard() {
+      $("dashboardMessage").textContent = "";
+      $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Chargement…</td></tr>';
+
+      try {
+        const [clientsData, onlineData] = await Promise.all([
+          api("/admin/clients"),
+          api("/admin/clients/online")
+        ]);
+
+        const clients = Array.isArray(clientsData.clients) ? clientsData.clients : [];
+        $("totalClients").textContent = String(clients.length);
+        $("onlineClients").textContent = String(onlineData.online_count ?? 0);
+
+        if (!clients.length) {
+          $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Aucun client enregistré.</td></tr>';
+          return;
+        }
+
+        $("clientsBody").replaceChildren(...clients.map(client => {
+          const tr = document.createElement("tr");
+          const username = document.createElement("td");
+          const status = document.createElement("td");
+          const pill = document.createElement("span");
+          const created = document.createElement("td");
+
+          username.textContent = client.username || "—";
+          pill.className = "status" + (client.active ? "" : " off");
+          pill.textContent = client.active ? "Actif" : "Désactivé";
+          status.append(pill);
+          created.textContent = client.created_at
+            ? new Date(client.created_at * 1000).toLocaleDateString("fr-FR")
+            : "—";
+
+          tr.append(username, status, created);
+          return tr;
+        }));
+      } catch (error) {
+        $("clientsBody").innerHTML = '<tr><td colspan="3" class="empty">Impossible de charger les clients.</td></tr>';
+        $("dashboardMessage").textContent = error.message;
+      }
+    }
+
+    $("createForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = $("createBtn");
+      button.disabled = true;
+      $("createMessage").textContent = "";
+
+      try {
+        const result = await api("/admin/clients", {
+          method: "POST",
+          body: JSON.stringify({
+            username: $("newUsername").value.trim(),
+            password: $("newPassword").value
+          })
+        });
+
+        $("createMessage").style.color = "var(--accent)";
+        $("createMessage").textContent =
+          result.status === "created" ? "Client créé avec succès." : "Opération terminée.";
+
+        $("createForm").reset();
+        await loadDashboard();
+      } catch (error) {
+        $("createMessage").style.color = "var(--danger)";
+        $("createMessage").textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    $("refreshBtn").addEventListener("click", loadDashboard);
+
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await api("/admin/logout", { method: "POST" });
+      } catch (error) {
+        console.warn("Logout API:", error.message);
+      }
+      showLogin("Vous êtes déconnecté.");
+    });
+  </script>
+</body>
+</html>
