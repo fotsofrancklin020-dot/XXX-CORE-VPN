@@ -474,6 +474,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
     layout.addView(status)
     layout.addView(clientUsername)
     layout.addView(clientPassword)
+    layout.addView(clientLoginButton)
     layout.addView(connectButton)  
     layout.addView(settingsButton)  
     layout.addView(subscriptionUrl)  
