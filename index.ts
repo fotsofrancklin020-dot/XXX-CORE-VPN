@@ -1062,6 +1062,109 @@ export default {
       }
     }
 
+    // CLIENT PROFILE - ANDROID
+    if (
+      request.method === "GET" &&
+      url.pathname === "/client/profile"
+    ) {
+      const authorization = request.headers.get("Authorization");
+
+      if (!authorization?.startsWith("Bearer ")) {
+        return json({
+          error: "Authentication required",
+        }, 401);
+      }
+
+      const token = authorization.slice(7).trim();
+
+      if (!/^[a-f0-9]{64}$/.test(token)) {
+        return json({
+          error: "Invalid authentication token",
+        }, 401);
+      }
+
+      try {
+        const tokenHash = await sha256(token);
+        const now = Math.floor(Date.now() / 1000);
+
+        // VERIFY CLIENT SESSION AND LOAD PROFILE
+        const profile = await env.DB.prepare(
+          `SELECT
+             s.id AS session_id,
+             s.expires_at AS session_expires_at,
+             c.id AS client_id,
+             c.username,
+             c.active,
+             c.created_at
+           FROM client_auth_sessions s
+           INNER JOIN clients c ON c.id = s.client_id
+           WHERE s.token_hash = ?
+             AND s.revoked = 0
+             AND s.expires_at > ?
+           LIMIT 1`
+        )
+          .bind(tokenHash, now)
+          .first<{
+            session_id: string;
+            session_expires_at: number;
+            client_id: string;
+            username: string;
+            active: number;
+            created_at: number;
+          }>();
+
+        if (!profile) {
+          return json({
+            error: "Session expired or invalid",
+          }, 401);
+        }
+
+        if (profile.active !== 1) {
+          await env.DB.prepare(
+            `UPDATE client_auth_sessions
+             SET revoked = 1
+             WHERE id = ?`
+          )
+            .bind(profile.session_id)
+            .run();
+
+          return json({
+            error: "Client account is disabled",
+          }, 403);
+        }
+
+        // UPDATE SESSION ACTIVITY
+        await env.DB.prepare(
+          `UPDATE client_auth_sessions
+           SET last_seen_at = ?
+           WHERE id = ?
+             AND revoked = 0`
+        )
+          .bind(now, profile.session_id)
+          .run();
+
+        return json({
+          status: "success",
+          profile: {
+            id: profile.client_id,
+            username: profile.username,
+            account_status: "active",
+            created_at: profile.created_at,
+          },
+          session: {
+            expires_at: profile.session_expires_at,
+          },
+        });
+
+      } catch (error) {
+        console.error("CLIENT_PROFILE_ERROR:", error);
+
+        return json({
+          error: "Unable to retrieve client profile",
+        }, 500);
+      }
+    }
+
     // ADMIN LOGIN
     if (
       request.method === "POST" &&
