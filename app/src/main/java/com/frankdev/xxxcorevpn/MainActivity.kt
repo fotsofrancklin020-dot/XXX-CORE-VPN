@@ -304,29 +304,46 @@ override fun onCreate(savedInstanceState: Bundle?) {
     }
 
     // CLIENT LOGIN BUTTON
-    val clientLoginButton = Button(this).apply {
-        text = "SE CONNECTER AU COMPTE"
+val clientLoginButton = Button(this).apply {
+    text = "SE CONNECTER AU COMPTE"
 
-        setOnClickListener {
-            val username = clientUsername.text.toString().trim()
-            val password = clientPassword.text.toString()
+    setOnClickListener {
+        val username = clientUsername.text.toString().trim()
+        val password = clientPassword.text.toString()
 
-            if (username.isBlank() || password.isBlank()) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Entre ton nom d'utilisateur et ton mot de passe",
-                    Toast.LENGTH_LONG
-                ).show()
-                return@setOnClickListener
-            }
+        if (username.isBlank() || password.isBlank()) {
+            Toast.makeText(
+                this@MainActivity,
+                "Entre ton nom d'utilisateur et ton mot de passe",
+                Toast.LENGTH_LONG
+            ).show()
+            return@setOnClickListener
+        }
+
+        isEnabled = false
+
+        ClientApi.login(
+            this@MainActivity,
+            "https://frankdev-xxxcore-server.fotsofrancklin020.workers.dev",
+            username,
+            password
+        ) { success, message ->
+
+            isEnabled = true
 
             Toast.makeText(
                 this@MainActivity,
-                "Informations saisies. Connexion API à intégrer.",
+                message,
                 Toast.LENGTH_LONG
             ).show()
+
+            if (success) {
+                clientPassword.text.clear()
+                status.text = "Compte client connecté"
+            }
         }
     }
+}
 
     // CONNECT BUTTON  
     val connectButton = Button(this).apply {  
