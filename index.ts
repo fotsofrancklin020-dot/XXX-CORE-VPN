@@ -434,49 +434,49 @@ export default {
       }
     }
 
-    // ADMIN ONLINE CLIENTS
-    if (
-      request.method === "GET" &&
-      url.pathname === "/admin/clients/online"
-    ) {
-      const authError = await requireAdmin(request, env);
-      if (authError) return authError;
+// ADMIN ONLINE CLIENTS
+if (
+  request.method === "GET" &&
+  url.pathname === "/admin/clients/online"
+) {
+  const authError = await requireAdmin(request, env);
+  if (authError) return authError;
 
-      try {
-        const now = Math.floor(Date.now() / 1000);
-        const onlineSince = now - 90;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const onlineSince = now - 90;
 
-        const result = await env.DB.prepare(
-          `SELECT
-             s.id AS session_id,
-             s.client_id,
-             c.username,
-             s.connected_at,
-             s.last_seen_at
-           FROM client_sessions s
-           INNER JOIN clients c ON c.id = s.client_id
-           WHERE s.revoked = 0
-             AND s.last_seen_at >= ?
-             AND c.active = 1
-           ORDER BY s.last_seen_at DESC`
-        )
-          .bind(onlineSince)
-          .all();
+    const result = await env.DB.prepare(
+      `SELECT
+         s.id AS session_id,
+         s.client_id,
+         c.username,
+         s.connected_at,
+         s.last_seen_at
+       FROM client_sessions s
+       INNER JOIN clients c ON c.id = s.client_id
+       WHERE s.revoked = 0
+         AND s.last_seen_at >= ?
+         AND c.active = 1
+       ORDER BY s.last_seen_at DESC`
+    )
+      .bind(onlineSince)
+      .all();
 
-        return json({
-          status: "ok",
-          online_count: result.results.length,
-          online_since: onlineSince,
-          clients: result.results,
-        });
-      } catch (error) {
-        console.error("ONLINE_CLIENTS_ERROR:", error);
+    return json({
+      status: "ok",
+      online_count: result.results.length,
+      online_since: onlineSince,
+      clients: result.results,
+    });
+  } catch (error) {
+    console.error("ONLINE_CLIENTS_ERROR:", error);
 
-        return json({
-          error: "Unable to retrieve online clients",
-        }, 500);
-      }
-    }
+    return json({
+      error: "Unable to retrieve online clients",
+    }, 500);
+  }
+}
 
     // ADMIN DISCONNECT CLIENT SESSION
     const disconnectMatch = url.pathname.match(
